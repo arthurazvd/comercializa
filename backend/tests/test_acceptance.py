@@ -8,13 +8,13 @@ from tests.factories import CategoryFactory, ProductFactory, SaleFactory, SaleIt
 
 
 @pytest.mark.django_db
-class TestAcceptanceCriteria:
+class TesteAceitacao:
     """Testes de aceitação - Cenários de negócio completos"""
 
     def setup_method(self):
         self.client = APIClient()
 
-    def test_ac_no_negative_stock_from_sale(self):
+    def teste_sem_estoque_negativo_venda(self):
         """Critério de aceitação: nenhuma venda pode gerar estoque negativo"""
         product = ProductFactory(stock=10)
 
@@ -33,7 +33,7 @@ class TestAcceptanceCriteria:
         assert product.stock == 10
         assert product.stock >= 0
 
-    def test_ac_stock_updated_same_transaction(self):
+    def teste_estoque_atualizado_mesma_transacao(self):
         """Critério de aceitação: estoque atualizado na mesma transação da venda"""
         product = ProductFactory(stock=50, sale_price=Decimal("10.00"))
         initial_stock = product.stock
@@ -59,7 +59,7 @@ class TestAcceptanceCriteria:
         total_sold = sum(item.quantity for item in sale.items.all())
         assert product.stock + total_sold == initial_stock
 
-    def test_ac_recommendations_have_reason(self):
+    def teste_recomendacoes_com_justificativa(self):
         """Critério de aceitação: recomendações devem possuir justificativa"""
         # Criar cenários que geram recomendações
         ProductFactory(stock=0, minimum_stock=20)  # reposição
@@ -77,7 +77,7 @@ class TestAcceptanceCriteria:
             assert isinstance(rec["reason"], str)
             assert len(rec["reason"]) > 0
 
-    def test_ac_sad_rules_deterministic(self):
+    def teste_regras_sad_deterministicas(self):
         """Critério de aceitação: regras SAD produzem resultados determinísticos"""
         # Criar estado conhecido
         product = ProductFactory(
@@ -102,7 +102,7 @@ class TestAcceptanceCriteria:
             assert results[0][i]["priority"] == results[1][i]["priority"] == results[2][i]["priority"]
             assert results[0][i]["reason"] == results[1][i]["reason"] == results[2][i]["reason"]
 
-    def test_workflow_create_product_and_sell(self):
+    def teste_fluxo_create_product_and_sell(self):
         """Fluxo: Criar produto, registrar venda, verificar dashboard"""
         # 1. Criar categoria
         category_payload = {"name": "Alimentos"}
@@ -142,7 +142,7 @@ class TestAcceptanceCriteria:
         assert dash_response.data["summary"]["sales_count"] == 1
         assert dash_response.data["summary"]["revenue"] == Decimal("450.00")
 
-    def test_workflow_low_stock_alert(self):
+    def teste_fluxo_low_stock_alert(self):
         """Fluxo: Produto atinge estoque mínimo, gera alerta"""
         product = ProductFactory(
             name="Feijão",
@@ -165,7 +165,7 @@ class TestAcceptanceCriteria:
         low_stock_products = [p["name"] for p in response.data["low_stock"]]
         assert "Feijão" in low_stock_products
 
-    def test_workflow_expiration_alert(self):
+    def teste_fluxo_expiration_alert(self):
         """Fluxo: Produto próximo ao vencimento, gera alerta"""
         today = timezone.localdate()
         product = ProductFactory(
@@ -183,7 +183,7 @@ class TestAcceptanceCriteria:
         validade_recs = [r for r in response.data["recommendations"] if r["type"] == "validade"]
         assert len(validade_recs) > 0
 
-    def test_workflow_multiple_sales_one_transaction(self):
+    def teste_fluxo_multiple_sales_one_transaction(self):
         """Fluxo: Venda com múltiplos itens em uma transação"""
         product1 = ProductFactory(
             name="Arroz",
@@ -215,7 +215,7 @@ class TestAcceptanceCriteria:
         assert product1.stock == 80
         assert product2.stock == 35
 
-    def test_workflow_inactive_product_not_in_dashboard(self):
+    def teste_fluxo_inactive_product_not_in_dashboard(self):
         """Fluxo: Produto inativo não aparece no dashboard"""
         active = ProductFactory(active=True, stock=10)
         inactive = ProductFactory(active=False, stock=10)
@@ -223,7 +223,7 @@ class TestAcceptanceCriteria:
         response = self.client.get("/api/dashboard/")
         assert response.data["summary"]["products_count"] == 1
 
-    def test_workflow_low_velocity_recommendation(self):
+    def teste_fluxo_low_velocity_recommendation(self):
         """Fluxo: Produto sem vendas em 30 dias gera recomendação"""
         # Produto vendido
         sold = ProductFactory(name="Vendido", stock=10)
@@ -239,7 +239,7 @@ class TestAcceptanceCriteria:
         assert "Novo" in stagnant
         assert "Vendido" not in stagnant
 
-    def test_workflow_top_products_ranking(self):
+    def teste_fluxo_top_products_ranking(self):
         """Fluxo: Ranking de produtos mais vendidos"""
         p1 = ProductFactory(name="Arroz", sale_price=Decimal("10.00"))
         p2 = ProductFactory(name="Feijão", sale_price=Decimal("8.00"))
