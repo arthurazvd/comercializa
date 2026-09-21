@@ -70,9 +70,55 @@ Frontend: `http://localhost:5173`
 
 ## Testes
 
+O projeto utiliza **pytest**, **pytest-django** e **pytest-cov**. Há testes
+unitários do CRUD de produtos em `backend/tests/test_product_service.py`. Eles
+usam `unittest.mock` para substituir o acesso ao banco e verificar as operações
+de inserir, consultar, atualizar e excluir de forma isolada.
+
+Os testes de integração estão em `backend/tests/test_api.py`. Eles fazem
+requisições HTTP à API com `APIClient` e verificam, junto ao banco de testes, se
+as rotas, os serializers e os modelos funcionam em conjunto.
+
+Para instalar as dependências e executar todos os testes:
+
 ```bash
 cd backend
-python manage.py test
+python -m venv .venv
+source .venv/bin/activate
+# Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pytest
 ```
 
-Consulte também `docs/07-plano-de-testes.md`.
+O próprio comando `pytest` gera:
+
+- o resumo dos testes no terminal;
+- o relatório navegável em `backend/htmlcov/index.html`;
+- o arquivo `backend/coverage.xml`, compatível com o SonarQube.
+
+Na execução validada desta versão, os **73 testes passaram** e a cobertura
+total obtida foi de **80%**.
+
+Teste de unidade verifica uma função isoladamente, substituindo dependências
+por mocks. Teste de integração verifica a comunicação entre partes reais do
+sistema, como rota, serializer, modelo e banco de dados de teste.
+
+### Experiência com os testes
+
+A implementação dos testes ajudou a confirmar separadamente as quatro operações
+do CRUD e também o fluxo completo da API. Os mocks tornaram os testes unitários
+rápidos e independentes do banco. Já os testes de integração deram mais
+segurança de que as requisições realmente persistem e recuperam os dados como
+esperado.
+
+### Tutorial utilizado
+
+- [Django REST Framework: Quickstart](https://www.django-rest-framework.org/tutorial/quickstart/): apresenta a criação de uma API CRUD com serializers, viewsets, rotas e testes automatizados usando as ferramentas de teste do Django.
+
+### Integração contínua
+
+O workflow `.github/workflows/tests.yml` instala as dependências, executa os
+testes, calcula a cobertura e disponibiliza os relatórios como artefatos no
+GitHub Actions a cada push ou pull request.
+
+Consulte também o [plano de testes](docs/07-plano-de-testes.md).
