@@ -76,3 +76,21 @@ python manage.py test
 ```
 
 Consulte também `docs/07-plano-de-testes.md`.
+
+## Equipe
+
+- Arthur Azevêdo
+- José Samuel
+- Marcus Vinícius
+
+## Documentação
+
+A documentação completa está disponível em [`docs/00-indice.md`](docs/00-indice.md).
+
+Documentos principais do Projeto 01:
+
+- [Documento de Visão](docs/01-visao-do-projeto.md)
+- [Product Backlog — User Stories](docs/11-user-stories.md)
+- [Plano Geral de Iterações](docs/12-plano-iteracoes.md)
+- [Relatório do Estado Atual dos Testes](docs/13-estado-atual-testes.md)
+- [Plano da Iteração 1](docs/14-iteracao-01.md)
