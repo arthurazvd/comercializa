@@ -80,8 +80,6 @@ Consulte também `docs/07-plano-de-testes.md`.
 ## Equipe
 
 - Arthur Azevêdo
-- José Samuel
-- Marcus Vinícius
 
 ## Documentação
 
