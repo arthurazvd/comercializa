@@ -33,7 +33,54 @@ Este documento apresenta o Product Backlog do **Comercializa**, organizado em hi
 | US17 | Como equipe de desenvolvimento, quero acompanhar a cobertura de testes para identificar trechos sem verificação automatizada. | Alta | Gerar relatório de cobertura reproduzível e registrar a evolução ao longo das iterações. |
 | US18 | Como equipe de desenvolvimento, quero executar os testes automaticamente no CI para detectar regressões a cada alteração. | Alta | Workflow deve instalar dependências, executar testes e falhar quando a suíte falhar. |
 
-## 4. Definition of Done
+## 4. Especificação detalhada — US14
+
+### US14 — Ampliar testes automatizados dos modelos e regras de negócio
+
+**Como** integrante da equipe de desenvolvimento,  
+**quero** ampliar os testes automatizados das regras de negócio do Comercializa,  
+**para** reduzir o risco de regressões nas funcionalidades relacionadas ao estoque, faturamento e recomendações do sistema.
+
+### Critérios de aceitação
+
+- As principais regras de negócio do serviço de dashboard devem possuir testes automatizados.
+- Os testes unitários devem isolar dependências externas utilizando Mock Objects quando aplicável.
+- Devem existir cenários de limite para estoque e faturamento.
+- Pelo menos um teste de integração deve validar o comportamento conjunto entre API, persistência e regra de negócio.
+- A suíte existente deve continuar passando após a inclusão dos novos testes.
+- A cobertura deve ser gerada por meio do `pytest-cov`.
+
+### Cenários de aceitação — BDD/Gherkin
+
+#### Cenário 1 — Faturamento nunca deve ser negativo
+
+```gherkin
+Dado que existem vendas no período analisado
+E o valor total dos descontos é superior ao valor bruto vendido
+Quando o dashboard calcular o faturamento
+Então o faturamento apresentado deve ser igual a zero
+E nunca deve ser apresentado um valor negativo
+
+### Cenário 2 — Produto no estoque mínimo deve ser considerado crítico
+
+```gherkin
+Dado que existe um produto ativo
+E seu estoque atual é igual ao estoque mínimo configurado
+Quando o dashboard analisar a situação do estoque
+Então o produto deve ser classificado como estoque crítico
+E deve existir uma recomendação de reposição para o produto
+
+### Cenário 3 — Venda deve refletir nos indicadores do dashboard
+
+```gherkin
+Dado que existe um produto ativo com estoque disponível
+Quando uma venda desse produto for registrada pela API
+Então a venda deve ser persistida
+E o estoque do produto deve ser reduzido
+E a quantidade de vendas apresentada no dashboard deve aumentar
+E o faturamento do dashboard deve considerar a nova venda
+
+## 5. Definition of Done
 
 Uma User Story é considerada concluída quando:
 
