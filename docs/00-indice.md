@@ -16,6 +16,8 @@
 12. [Plano Geral de Iterações](12-plano-iteracoes.md)
 13. [Relatório do Estado Atual dos Testes](13-estado-atual-testes.md)
 14. [Plano da Iteração 1](14-iteracao-01.md)
+15. [Plano de Teste Geral (PTG)](15-plano-teste-geral.md)
+16. [Plano de Teste das Iterações 1 e 2 (PTI)](16-plano-teste-iteracoes-01-02.md)
 
 ## Documentos principais do Projeto 01
 
@@ -24,3 +26,10 @@
 - [Plano Geral de Iterações](12-plano-iteracoes.md)
 - [Relatório do Estado Atual dos Testes](13-estado-atual-testes.md)
 - [Plano da Iteração 1](14-iteracao-01.md)
+
+## Documentos principais do Projeto 02
+
+- [Plano de Teste Geral (PTG)](15-plano-teste-geral.md)
+- [Plano de Teste das Iterações 1 e 2 (PTI)](16-plano-teste-iteracoes-01-02.md)
+- [`sonar-project.properties`](../sonar-project.properties)
+- [Workflow de CI](../.github/workflows/tests.yml)

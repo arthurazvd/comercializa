@@ -92,3 +92,5 @@ Documentos principais do Projeto 01:
 - [Plano Geral de Iterações](docs/12-plano-iteracoes.md)
 - [Relatório do Estado Atual dos Testes](docs/13-estado-atual-testes.md)
 - [Plano da Iteração 1](docs/14-iteracao-01.md)
+- [Plano de Teste Geral (PTG)](docs/15-plano-teste-geral.md)
+- [Plano de Teste das Iterações 1 e 2 (PTI)](docs/16-plano-teste-iteracoes-01-02.md)
