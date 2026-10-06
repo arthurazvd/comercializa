@@ -239,3 +239,69 @@ class TesteAPICategoria:
         response = self.client.post("/api/categories/", payload, format="json")
         assert response.status_code == 201
         assert response.data["name"] == "Alimentos"
+
+@pytest.mark.django_db
+class TesteIntegracaoVendaDashboard:
+    """
+    Teste de integração da US14.
+
+    Valida o fluxo entre API de vendas, persistência,
+    atualização de estoque e indicadores do dashboard.
+    """
+
+    def teste_venda_atualiza_estoque_e_dashboard(self):
+        client = APIClient()
+
+        category = CategoryFactory(name="Integração")
+
+        product = ProductFactory(
+            name="Produto Integração",
+            category=category,
+            sale_price=Decimal("20.00"),
+            purchase_price=Decimal("10.00"),
+            stock=10,
+            minimum_stock=2,
+            active=True,
+        )
+
+        response_dashboard_before = client.get("/api/dashboard/")
+        assert response_dashboard_before.status_code == 200
+
+        sales_before = response_dashboard_before.data["summary"]["sales_count"]
+        revenue_before = Decimal(
+            str(response_dashboard_before.data["summary"]["revenue"])
+        )
+
+        sale_payload = {
+            "discount": "0.00",
+            "items": [
+                {
+                    "product": product.id,
+                    "quantity": 2,
+                    "unit_price": "20.00",
+                }
+            ],
+        }
+
+        response_sale = client.post(
+            "/api/sales/",
+            sale_payload,
+            format="json",
+        )
+
+        assert response_sale.status_code == 201
+
+        product.refresh_from_db()
+
+        assert product.stock == 8
+
+        response_dashboard_after = client.get("/api/dashboard/")
+        assert response_dashboard_after.status_code == 200
+
+        summary = response_dashboard_after.data["summary"]
+
+        assert summary["sales_count"] == sales_before + 1
+
+        assert Decimal(str(summary["revenue"])) == (
+            revenue_before + Decimal("40.00")
+        )
