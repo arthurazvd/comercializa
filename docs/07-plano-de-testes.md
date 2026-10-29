@@ -78,3 +78,15 @@ A primeira suíte cobre:
 - segurança;
 - usabilidade com comerciante real;
 - validação das recomendações com dados históricos reais.
+
+
+## Iteração 02 — testes de estoque, filtros e Excel (29/10/2026)
+
+Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-estoque-relatorios-2026-10-29.md).
+
+- `backend/tests/test_reports_stock.py`: inventário consolidado, alertas, períodos inválidos, desconto rateado, histórico de preço, filtro por categoria/produto, validação da estrutura `.xlsx` e seed idempotente/auditado. **Escritos, não executados** nesta entrega por ausência das dependências Django.
+- `frontend/tests/uiPreferences.test.js`: leitura e persistência do tema, inclusive com armazenamento bloqueado. **3 testes aprovados.**
+- `frontend/tests/reportUtils.test.js`: intervalo padrão, serialização de filtros, pesquisa sem distinção de caixa, classificação de validade e estoque mínimo. **5 testes aprovados.**
+- `frontend/tests/utils.test.js`: validação do carrinho e utilitários preexistentes. **10 testes aprovados.**
+- Teste manual pendente: dois temas, responsividade, fluxo de popup, exportação aberta no Excel, busca do carrinho, teclado e Escape.
+- `npm run build` e `pytest` devem ser obrigatórios na CI antes do merge.

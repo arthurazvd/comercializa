@@ -1,12 +1,27 @@
 # Comercializa
 
-Sistema de Apoio à Decisão (SAD) para pequenos comércios.
+Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércios.
 
 O repositório foi separado em:
 
 - `backend/`: API em Django + Django REST Framework.
 - `frontend/`: interface em Vue 3 + Vite.
 - `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
+
+## Destaques da versão atual (29/10/2026)
+
+- Identidade visual da marca com logo SVG fornecida, ícones vetoriais e tema claro/escuro (persistido no navegador).
+- Busca por nome/SKU diretamente em cada item do carrinho de venda.
+- Nova tela **Ver estoque**: saldos, nível mínimo, situação, valor das mercadorias a custo, filtros por nome, categoria e status.
+- **Movimentações** separadas da posição de estoque, com justificativa e histórico.
+- Pop-ups de estoque crítico, vencidos e próximos de vencer, abertos a partir do dashboard.
+- Pop-up de relatórios com intervalo, categorias e itens vendidos; indicadores financeiros, ranking e visão por dia.
+- Exportação de estoque e financeiro em **Excel XLSX** com múltiplas abas, formatação, filtros e cabeçalhos.
+- Seed idempotente com 33 itens de loja de variedades (potes, vasilhas, bonés, chapéus, carregadores etc.).
+
+Para detalhes de cada alteração, contratos de API, testes e limitações: [Iteração 02 — Identidade, estoque e relatórios](docs/18-identidade-estoque-relatorios-2026-10-29.md).
+
+**Nota:** receita após descontos não é lucro líquido (despesas e custos ainda não são subtraídos). Esta versão é somente para desenvolvimento local, pois não tem autenticação.
 
 ## Escopo desta primeira versão
 
@@ -49,7 +64,9 @@ A parte de CRUD existe principalmente para gerar os dados usados pelo módulo de
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-# Windows: .venv\Scripts\activate
+# Windows CMD (recomendado Python 3.12 instalado fora da Microsoft Store):
+# py -3.12 -m venv .venv
+# .venv\Scripts\activate
 
 pip install -r requirements.txt
 python manage.py migrate
@@ -59,6 +76,8 @@ python manage.py runserver
 
 API: `http://127.0.0.1:8000/api/`
 
+> Se você já rodou o seed antigo de supermercado e quer ocultar aqueles itens: `python manage.py seed_demo --retire-legacy` (desativa seis SKUs específicos).
+> O seed é idempotente e não modifica produtos existentes ao executar novamente.
 > Os comandos acima usam dados de demonstração. Não execute `seed_demo` em uma base de produção.
 > A API ainda não possui autenticação; **use somente em ambiente local de desenvolvimento** até implementar controle de acesso e configuração segura.
 
@@ -94,7 +113,7 @@ npm run build
 ```
 
 **Nova migração obrigatória:** `python manage.py migrate` cria a tabela `StockMovement`.
-Para o inventário completo de mudanças, testes e pendências, consulte [Melhorias 29/10/2026](docs/17-melhorias-2026-10-29.md).
+Para o inventário de mudanças, testes e pendências, consulte [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md) e [Melhorias anteriores](docs/17-melhorias-2026-10-29.md).
 Consulte também `docs/07-plano-de-testes.md`.
 
 ## Equipe
