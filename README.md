@@ -14,13 +14,16 @@ A versão inicial já permite:
 
 - cadastrar, editar, listar e excluir produtos;
 - controlar estoque, estoque mínimo e validade;
-- registrar vendas com múltiplos itens;
-- baixar o estoque automaticamente após uma venda;
-- visualizar faturamento e quantidade de vendas;
+- registrar vendas com múltiplos itens na API **e no carrinho da interface**;
+- baixar o estoque automaticamente após uma venda e registrar trilha de auditoria;
+- ajustar estoques com justificativa e consultar movimentações;
+- desativar produtos sem apagar o histórico de movimentação;
+- visualizar faturamento, descontos, ticket médio e quantidade de vendas;
+- acompanhar a evolução diária da receita nos últimos 7 dias;
 - visualizar produtos mais vendidos;
 - identificar produtos com estoque crítico;
 - identificar produtos com baixa movimentação;
-- identificar produtos próximos do vencimento;
+- identificar produtos próximos do vencimento e produtos já vencidos;
 - gerar recomendações iniciais de reposição e promoção.
 
 A parte de CRUD existe principalmente para gerar os dados usados pelo módulo de apoio à decisão.
@@ -56,6 +59,9 @@ python manage.py runserver
 
 API: `http://127.0.0.1:8000/api/`
 
+> Os comandos acima usam dados de demonstração. Não execute `seed_demo` em uma base de produção.
+> A API ainda não possui autenticação; **use somente em ambiente local de desenvolvimento** até implementar controle de acesso e configuração segura.
+
 ### 2. Frontend
 
 Em outro terminal:
@@ -66,15 +72,29 @@ npm install
 npm run dev
 ```
 
-Frontend: `http://localhost:5173`
+Frontend: `http://localhost:5173` (o Vite encaminha `/api` para `127.0.0.1:8000`).
+Se necessário, defina `VITE_API_URL` para uma API externa em um `.env.local` do frontend.
 
 ## Testes
 
 ```bash
 cd backend
+python -m pytest
+# opcional: testes Django internos (não substituem o pytest)
 python manage.py test
 ```
 
+No frontend (Node.js 22+):
+
+```bash
+cd frontend
+npm ci
+npm test
+npm run build
+```
+
+**Nova migração obrigatória:** `python manage.py migrate` cria a tabela `StockMovement`.
+Para o inventário completo de mudanças, testes e pendências, consulte [Melhorias 29/10/2026](docs/17-melhorias-2026-10-29.md).
 Consulte também `docs/07-plano-de-testes.md`.
 
 ## Equipe

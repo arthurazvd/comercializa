@@ -9,6 +9,26 @@ on:
       - main
 
 jobs:
+  frontend:
+    name: Testes e build do frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+      - name: Testar regras do carrinho
+        run: npm test
+      - name: Validar build
+        run: npm run build
+
   tests:
     name: Testes e análise de qualidade
     runs-on: ubuntu-latest
@@ -46,6 +66,7 @@ jobs:
           ls -lh coverage.xml
 
       - name: Executar análise no SonarQube LABENS
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

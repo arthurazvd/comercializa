@@ -20,8 +20,8 @@
 ## Fase 3 — Gestão comercial
 - [ ] fornecedores;
 - [ ] entrada de mercadorias;
-- [ ] movimentações de estoque;
-- [ ] múltiplos itens com interface de carrinho;
+- [x] movimentações de estoque com trilha de auditoria;
+- [x] múltiplos itens com interface de carrinho;
 - [ ] promoções;
 - [ ] relatórios por período.
 
@@ -38,3 +38,16 @@
 - [ ] sazonalidade;
 - [ ] comparação entre modelos;
 - [ ] avaliação quantitativa das recomendações.
+
+## Melhorias de robustez — 29/10/2026
+- [x] validação de descontos, vencimento e estoque nas vendas;
+- [x] transações e atualização condicional de saldos;
+- [x] auditoria de ajuste manual e alteração no cadastro;
+- [x] dashboard com ticket médio, receita diária e vencidos;
+- [x] interface responsiva com filtros e histórico;
+- [x] suíte unitária frontend e job CI;
+- [ ] autenticação, autorização e preparação para produção (**prioridade crítica**);
+- [ ] testes E2E em navegador, concorrência real e cobertura completa;
+- [ ] paginação, filtros de período, fornecedores e entradas de compra.
+
+Detalhes e evidências: [17-melhorias-2026-10-29.md](17-melhorias-2026-10-29.md).

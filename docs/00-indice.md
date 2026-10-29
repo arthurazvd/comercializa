@@ -33,3 +33,5 @@
 - [Plano de Teste das Iterações 1 e 2 (PTI)](16-plano-teste-iteracoes-01-02.md)
 - [`sonar-project.properties`](../sonar-project.properties)
 - [Workflow de CI](../.github/workflows/tests.yml)
+
+- [17 — Melhorias implementadas em 29/10/2026, testes e pendências](17-melhorias-2026-10-29.md)

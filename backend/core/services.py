@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import DecimalField, ExpressionWrapper, F, Sum
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
 from .models import Product, Sale, SaleItem
@@ -24,15 +24,11 @@ def calculate_restock_quantity(stock, minimum_stock, velocity):
 
 def dashboard_data():
     today = timezone.localdate()
-    last_30_days = today - timedelta(days=30)
+    last_30_days = timezone.now() - timedelta(days=30)
     expiration_limit = today + timedelta(days=15)
 
-    sales_30 = Sale.objects.filter(
-        created_at__date__gte=last_30_days
-    )
-    items_30 = SaleItem.objects.filter(
-        sale__created_at__date__gte=last_30_days
-    )
+    sales_30 = Sale.objects.filter(created_at__gte=last_30_days)
+    items_30 = SaleItem.objects.filter(sale__created_at__gte=last_30_days)
 
     revenue_expression = ExpressionWrapper(
         F("quantity") * F("unit_price"),
@@ -78,17 +74,12 @@ def dashboard_data():
     expiring = Product.objects.filter(
         active=True,
         expiration_date__isnull=False,
+        stock__gt=0,
         expiration_date__gte=today,
         expiration_date__lte=expiration_limit,
     ).order_by("expiration_date")
 
-    sold_ids = (
-        items_30.values_list(
-            "product_id",
-            flat=True,
-        )
-        .distinct()
-    )
+    sold_ids = set(items_30.values_list("product_id", flat=True).distinct())
 
     stagnant = (
         Product.objects.filter(
@@ -104,6 +95,38 @@ def dashboard_data():
             "product_id"
         ).annotate(qty=Sum("quantity"))
     }
+
+    expired = Product.objects.filter(
+        active=True, stock__gt=0,
+        expiration_date__lt=today,
+    ).order_by("expiration_date")
+
+    # Série diária: as datas e os descontos usam o fuso configurado.
+    chart_dates = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
+    daily_gross = {
+        row["day"]: row["value"]
+        for row in items_30.filter(sale__created_at__date__gte=chart_dates[0])
+        .annotate(day=TruncDate("sale__created_at"))
+        .values("day")
+        .annotate(value=Sum(revenue_expression))
+    }
+    daily_discounts = {
+        row["day"]: row["value"]
+        for row in sales_30.filter(created_at__date__gte=chart_dates[0])
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(value=Sum("discount"))
+    }
+    daily_revenue = [
+        {
+            "date": day.isoformat(),
+            "revenue": calculate_revenue(
+                daily_gross.get(day, Decimal("0")),
+                daily_discounts.get(day, Decimal("0")),
+            ),
+        }
+        for day in chart_dates
+    ]
 
     recommendations = []
 
@@ -151,6 +174,14 @@ def dashboard_data():
                     ),
                 }
             )
+
+        if product.expiration_date and product.expiration_date < today and product.stock > 0:
+            recommendations.append({
+                "type": "vencido", "priority": "alta",
+                "product_id": product.id, "product": product.name,
+                "message": "Bloquear venda e separar unidades vencidas.",
+                "reason": "Validade já ultrapassada.",
+            })
 
         if product.expiration_date:
             days_to_expire = (
@@ -219,14 +250,23 @@ def dashboard_data():
         "period_days": 30,
         "summary": {
             "revenue": revenue,
+            "gross_revenue": gross_revenue,
+            "discounts": discounts,
+            "average_ticket": revenue / sales_30.count() if sales_30.count() else Decimal("0"),
             "sales_count": sales_30.count(),
             "products_count": Product.objects.filter(
                 active=True
             ).count(),
             "low_stock_count": low_stock.count(),
             "expiring_count": expiring.count(),
+            "expired_count": expired.count(),
         },
         "top_products": top_products,
+        "daily_revenue": daily_revenue,
+        "expired": [
+            {"id": p.id, "name": p.name, "stock": p.stock, "expiration_date": p.expiration_date}
+            for p in expired[:10]
+        ],
         "low_stock": [
             {
                 "id": product.id,

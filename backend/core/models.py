@@ -65,3 +65,31 @@ class SaleItem(models.Model):
     @property
     def subtotal(self):
         return self.unit_price * self.quantity
+
+
+class StockMovement(models.Model):
+    """Trilha de auditoria imutável de vendas e ajustes de estoque."""
+
+    class Reason(models.TextChoices):
+        SALE = "sale", "Venda"
+        ADJUSTMENT = "adjustment", "Ajuste manual"
+
+    product = models.ForeignKey(
+        Product, on_delete=models.PROTECT, related_name="stock_movements"
+    )
+    sale = models.ForeignKey(
+        Sale, on_delete=models.PROTECT, related_name="stock_movements",
+        null=True, blank=True,
+    )
+    delta = models.IntegerField()
+    stock_before = models.PositiveIntegerField()
+    stock_after = models.PositiveIntegerField()
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.product}: {self.delta:+d} ({self.get_reason_display()})"

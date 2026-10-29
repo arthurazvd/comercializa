@@ -80,8 +80,7 @@ class TesteDashboardComMock:
 
         resultado = dashboard_data()
 
-        mock_calculate_revenue.assert_called_once_with(
-            Decimal("0"),
-            Decimal("0"),
-        )
+        # O dashboard usa a função para o consolidado e os sete dias do gráfico.
+        assert mock_calculate_revenue.call_count == 8
+        mock_calculate_revenue.assert_any_call(Decimal("0"), Decimal("0"))
         assert resultado["summary"]["revenue"] == Decimal("123.45")
