@@ -8,9 +8,14 @@ O repositório foi separado em:
 - `frontend/`: interface em Vue 3 + Vite.
 - `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
 
-## Destaques da versão atual (30/10/2026)
+## Destaques da versão atual — Iteração 04 (30/10/2026)
 
-- Identidade visual com variações oficiais SVG: logo vertical ampliada no desktop, horizontal no celular, favicon só com o símbolo e rodapé com créditos, ano automático e adaptação ao tema claro/escuro.
+- Identidade visual com variações oficiais SVG: logo vertical compacta no desktop, horizontal no celular, favicon só com símbolo e rodapé com créditos e ano automático.
+- Avisos de sucesso e erro em **toast flutuante de 2 segundos**, sem mensagens permanentes ocupando a tela.
+- Venda com **adicionador fixo acima do carrinho**; pesquisa e catálogo alfabético exibido ao focar.
+- Visão geral com filtros gerenciais de 7/30/90 dias ou 12 meses, escolha de agrupamento e gráficos SVG em barras, linhas, área e rosca, com rankings de produtos e categorias.
+- Produtos perecíveis com validade por lote no recebimento, baixa FEFO e separação de saldos físico, vendável e vencido.
+- Justificativas predefinidas de estoque e campo livre para outros motivos.
 - Busca por nome/SKU diretamente em cada item do carrinho de venda.
 - Nova tela **Ver estoque**: saldos, nível mínimo, situação, valor das mercadorias a custo, filtros por nome, categoria e status.
 - **Movimentações** separadas da posição de estoque, com justificativa e histórico.
@@ -19,7 +24,7 @@ O repositório foi separado em:
 - Exportação de estoque e financeiro em **Excel XLSX** com múltiplas abas, formatação, filtros e cabeçalhos.
 - Seed idempotente com 33 itens de loja de variedades (potes, vasilhas, bonés, chapéus, carregadores etc.).
 
-Para detalhes das atualizações visuais e validação: [Iteração 03 — Identidade responsiva e rodapé](docs/19-identidade-responsiva-footer-2026-10-30.md). Para contratos de API e relatórios: [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md).
+Para detalhes dos novos lotes, gráficos e validação: [Iteração 04](docs/20-iteracao-04-experiencia-lotes-graficos-2026-10-30.md). Para identidade visual: [Iteração 03 — Identidade responsiva e rodapé](docs/19-identidade-responsiva-footer-2026-10-30.md). Para contratos de API e relatórios: [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md).
 
 **Nota:** receita após descontos não é lucro líquido (despesas e custos ainda não são subtraídos). Esta versão é somente para desenvolvimento local, pois não tem autenticação.
 
@@ -112,8 +117,8 @@ npm test
 npm run build
 ```
 
-**Nova migração obrigatória:** `python manage.py migrate` cria a tabela `StockMovement`.
-Para a identidade responsiva, consulte [Iteração 03](docs/19-identidade-responsiva-footer-2026-10-30.md). Para o inventário de mudanças, testes e pendências, consulte [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md) e [Melhorias anteriores](docs/17-melhorias-2026-10-29.md).
+**Migração obrigatória nesta atualização:** `python manage.py migrate` cria `StockLot`, `StockLotAllocation` e o campo `Product.perishable` (a tabela `StockMovement` já existia na versão anterior). Faça cópia do banco antes de migrar.
+Para controle de lotes, toast e gráficos, consulte [Iteração 04](docs/20-iteracao-04-experiencia-lotes-graficos-2026-10-30.md). Para a identidade responsiva, consulte [Iteração 03](docs/19-identidade-responsiva-footer-2026-10-30.md). Para o inventário de mudanças, testes e pendências, consulte [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md) e [Melhorias anteriores](docs/17-melhorias-2026-10-29.md).
 Consulte também `docs/07-plano-de-testes.md`.
 
 ## Equipe

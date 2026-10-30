@@ -9,7 +9,7 @@ export function localDateISO(now = new Date()) {
 }
 
 export function eligibleProducts(products, dateISO = localDateISO()) {
-  return products.filter(p => p.active && p.stock > 0 && (!p.expiration_date || p.expiration_date >= dateISO))
+  return products.filter(p => p.active && ((p.available_stock !== undefined && p.available_stock !== null) ? Number(p.available_stock) > 0 : p.stock > 0 && (!p.expiration_date || p.expiration_date >= dateISO)))
 }
 
 export function calculateCart(items, products, discount = 0) {
@@ -29,7 +29,7 @@ export function validCart(items, products, discount = 0, dateISO = localDateISO(
     && items.every(item => {
       const product = eligible.find(p => p.id === Number(item.product))
       const qty = Number(item.quantity)
-      return product && Number.isInteger(qty) && qty > 0 && qty <= product.stock
+      return product && Number.isInteger(qty) && qty > 0 && qty <= Number(product.available_stock ?? product.stock)
     })
     && Number.isFinite(Number(discount)) && Number(discount) >= 0 && Number(discount) <= subtotal
 }

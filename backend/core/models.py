@@ -24,6 +24,7 @@ class Product(models.Model):
     stock = models.PositiveIntegerField(default=0)
     minimum_stock = models.PositiveIntegerField(default=0)
     expiration_date = models.DateField(null=True, blank=True)
+    perishable = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -74,6 +75,15 @@ class StockMovement(models.Model):
         SALE = "sale", "Venda"
         ADJUSTMENT = "adjustment", "Ajuste manual"
 
+    class Justification(models.TextChoices):
+        RECEIPT = "recebimento", "Recebimento"
+        RETURN = "devolucao", "Devolução"
+        DAMAGE = "avaria", "Avaria / quebra"
+        DISCARD = "perda", "Descarte / vencimento"
+        INVENTORY = "inventario", "Acerto de inventário"
+        OTHER = "outro", "Outro"
+
+    justification = models.CharField(max_length=30, choices=Justification.choices, blank=True, default="")
     product = models.ForeignKey(
         Product, on_delete=models.PROTECT, related_name="stock_movements"
     )
@@ -93,3 +103,26 @@ class StockMovement(models.Model):
 
     def __str__(self):
         return f"{self.product}: {self.delta:+d} ({self.get_reason_display()})"
+
+
+class StockLot(models.Model):
+    """Lote recebido com validade própria. O saldo total continua em Product.stock."""
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="lots")
+    expiration_date = models.DateField()
+    received_quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField()
+    receipt_movement = models.ForeignKey(StockMovement, on_delete=models.PROTECT, related_name="received_lots", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["expiration_date", "id"]
+
+    def __str__(self):
+        return f"{self.product.name} — {self.expiration_date} ({self.quantity})"
+
+
+class StockLotAllocation(models.Model):
+    """Registro de qual lote foi baixado por venda/ajuste."""
+    movement = models.ForeignKey(StockMovement, on_delete=models.PROTECT, related_name="lot_allocations")
+    lot = models.ForeignKey(StockLot, on_delete=models.PROTECT, related_name="allocations")
+    quantity = models.PositiveIntegerField()

@@ -17,7 +17,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.select_related("category").all()
+    queryset = Product.objects.select_related("category").prefetch_related("lots").all()
     serializer_class = ProductSerializer
 
     def destroy(self, request, *args, **kwargs):
@@ -44,7 +44,7 @@ class SaleListCreateView(generics.ListCreateAPIView):
 
 
 class StockMovementListCreateView(generics.ListCreateAPIView):
-    queryset = StockMovement.objects.select_related("product", "sale").order_by("-created_at", "-id")
+    queryset = StockMovement.objects.select_related("product", "sale").prefetch_related("lot_allocations__lot", "received_lots").order_by("-created_at", "-id")
 
     def get_serializer_class(self):
         return StockAdjustmentSerializer if self.request.method == "POST" else StockMovementSerializer

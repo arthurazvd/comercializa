@@ -15,11 +15,11 @@ export function queryReport(filters) {
 
 export function inventoryStatus(product, dateISO = localDateISO()) {
   if (!product.active) return 'inativo'
-  if (product.stock > 0 && product.expiration_date && product.expiration_date < dateISO) return 'vencido'
+  if (Number(product.expired_units ?? 0) > 0 || (product.expired_units === undefined && product.stock > 0 && product.expiration_date && product.expiration_date < dateISO)) return 'vencido'
   const limit = new Date(`${dateISO}T12:00:00`)
   limit.setDate(limit.getDate() + 15)
-  if (product.stock > 0 && product.expiration_date && product.expiration_date <= localDateISO(limit)) return 'a_vencer'
-  if (product.stock <= product.minimum_stock) return 'critico'
+  if (Number(product.expiring_units ?? 0) > 0 || (product.expiring_units === undefined && product.stock > 0 && product.expiration_date && product.expiration_date <= localDateISO(limit))) return 'a_vencer'
+  if (Number(product.available_stock ?? product.stock) <= product.minimum_stock) return 'critico'
   return 'normal'
 }
 
@@ -34,7 +34,7 @@ export function filteredInventory(products, term = '', status = 'all', category 
     if (!matchProductSearch(p, term)) return false
     if (category && String(p.category) !== String(category)) return false
     if (status === 'all') return true
-    if (status === 'critico') return p.active && p.stock <= p.minimum_stock
+    if (status === 'critico') return p.active && Number(p.available_stock ?? p.stock) <= p.minimum_stock
     if (status === 'a_vencer' || status === 'vencido') return inventoryStatus(p) === status
     return inventoryStatus(p) === status
   })

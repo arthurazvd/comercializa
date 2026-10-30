@@ -60,7 +60,7 @@ class Command(BaseCommand):
             defaults = dict(name=name, category=category, purchase_price=Decimal(cost),
                             sale_price=Decimal(price), stock=stock, minimum_stock=minimum,
                             expiration_date=today + timedelta(days=expiry) if expiry is not None else None,
-                            active=True)
+                            active=True, perishable=expiry is not None)
             if options['reset_demo']:
                 with transaction.atomic():
                     product = Product.objects.select_for_update().filter(sku=sku).first()

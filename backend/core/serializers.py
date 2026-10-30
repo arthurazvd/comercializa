@@ -6,7 +6,8 @@ from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import Category, Product, Sale, SaleItem, StockMovement
+from .models import Category, Product, Sale, SaleItem, StockMovement, StockLot, StockLotAllocation
+from .stock_lots import stock_snapshot, consume_lots
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -23,6 +24,10 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
+    available_stock = serializers.SerializerMethodField()
+    expired_units = serializers.SerializerMethodField()
+    expiring_units = serializers.SerializerMethodField()
+    nearest_expiration = serializers.SerializerMethodField()
     margin = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False)
     sale_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
@@ -34,9 +39,22 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "category", "category_name", "sku",
             "purchase_price", "sale_price", "margin", "stock",
-            "minimum_stock", "expiration_date", "active", "created_at",
+            "minimum_stock", "expiration_date", "perishable", "active", "created_at",
+            "available_stock", "expired_units", "expiring_units", "nearest_expiration",
         ]
         read_only_fields = ["created_at"]
+
+    def get_available_stock(self, obj):
+        return stock_snapshot(obj)['available_stock']
+
+    def get_expired_units(self, obj):
+        return stock_snapshot(obj)['expired_units']
+
+    def get_expiring_units(self, obj):
+        return stock_snapshot(obj)['expiring_units']
+
+    def get_nearest_expiration(self, obj):
+        return stock_snapshot(obj)['nearest_expiration']
 
     def validate_name(self, value):
         value = value.strip()
@@ -46,6 +64,14 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def validate_sku(self, value):
         return value.strip() or None if value is not None else None
+
+    def validate(self, attrs):
+        perishable = attrs.get('perishable', getattr(self.instance, 'perishable', False))
+        quantity = attrs.get('stock', getattr(self.instance, 'stock', 0))
+        expiry = attrs.get('expiration_date', getattr(self.instance, 'expiration_date', None))
+        if perishable and quantity > 0 and not expiry and not (self.instance and self.instance.lots.exists()):
+            raise serializers.ValidationError({'expiration_date': 'Informe a validade do saldo inicial de um perecível.'})
+        return attrs
 
     @transaction.atomic
     def update(self, instance, validated_data):
@@ -57,6 +83,8 @@ class ProductSerializer(serializers.ModelSerializer):
             )
 
         new_stock = validated_data.get("stock", current.stock)
+        if new_stock > current.stock and validated_data.get('perishable', current.perishable):
+            raise serializers.ValidationError({'stock': 'Para receber um perecível, use Movimentações e informe a validade do lote.'})
         # CAS (compare-and-swap): protege inclusive PUT/PATCH sem campo stock,
         # sem depender exclusivamente de SELECT FOR UPDATE (inócuo no SQLite).
         updated = Product.objects.filter(pk=instance.pk, stock=current.stock).update(**validated_data)
@@ -64,8 +92,12 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"stock": "Estoque alterado em outra operação. Recarregue os dados."}
             )
+        if new_stock < current.stock:
+            allocations = consume_lots(current, current.stock - new_stock, sale_only=False)
+        else:
+            allocations = []
         if new_stock != current.stock:
-            StockMovement.objects.create(
+            movement = StockMovement.objects.create(
                 product=current,
                 delta=new_stock - current.stock,
                 stock_before=current.stock,
@@ -73,6 +105,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 reason=StockMovement.Reason.ADJUSTMENT,
                 note="Correção de saldo no cadastro do produto",
             )
+            for lot, qty in allocations:
+                StockLotAllocation.objects.create(movement=movement, lot=lot, quantity=qty)
         instance.refresh_from_db()
         return instance
 
@@ -117,9 +151,7 @@ class SaleCreateSerializer(serializers.Serializer):
                     f"O produto '{product.name}' foi informado mais de uma vez."
                 )
             seen.add(product.pk)
-            if product.expiration_date and product.expiration_date < timezone.localdate():
-                raise serializers.ValidationError(f"Produto vencido: '{product.name}'.")
-            if item["quantity"] > product.stock:
+            if item["quantity"] > stock_snapshot(product)["available_stock"]:
                 raise serializers.ValidationError(
                     f"Estoque insuficiente para '{product.name}'. Disponível: {product.stock}."
                 )
@@ -144,9 +176,7 @@ class SaleCreateSerializer(serializers.Serializer):
             product = Product.objects.select_for_update().get(pk=item["product"].pk)
             if not product.active:
                 raise serializers.ValidationError({"items": f"Produto inativo: '{product.name}'."})
-            if product.expiration_date and product.expiration_date < timezone.localdate():
-                raise serializers.ValidationError({"items": f"Produto vencido: '{product.name}'."})
-            if item["quantity"] > product.stock:
+            if item["quantity"] > stock_snapshot(product)["available_stock"]:
                 raise serializers.ValidationError({"items": f"Estoque insuficiente para '{product.name}'."})
             products[product.pk] = product
 
@@ -161,33 +191,48 @@ class SaleCreateSerializer(serializers.Serializer):
         for item in items_data:
             product = products[item["product"].pk]
             quantity = item["quantity"]
+            allocations = consume_lots(product, quantity, sale_only=True)
             updated = Product.objects.filter(
-                pk=product.pk, active=True, stock__gte=quantity,
-            ).filter(
-                Q(expiration_date__isnull=True) | Q(expiration_date__gte=timezone.localdate())
+                pk=product.pk, active=True, stock=product.stock,
             ).update(stock=F("stock") - quantity)
             if not updated:
                 raise serializers.ValidationError({"items": f"Estoque indisponível para '{product.name}'."})
             SaleItem.objects.create(
                 sale=sale, product=product, quantity=quantity, unit_price=product.sale_price,
             )
-            StockMovement.objects.create(
+            movement = StockMovement.objects.create(
                 product=product, delta=-quantity, stock_before=product.stock,
                 stock_after=product.stock - quantity, reason=StockMovement.Reason.SALE,
                 note=f"Venda #{sale.pk}", sale=sale,
             )
+            for lot, qty in allocations:
+                StockLotAllocation.objects.create(movement=movement, lot=lot, quantity=qty)
         return sale
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
+    lots = serializers.SerializerMethodField()
+
+    def get_lots(self, obj):
+        outgoing = [
+            {'expiration_date': a.lot.expiration_date, 'quantity': -a.quantity}
+            for a in obj.lot_allocations.select_related('lot').all()
+        ]
+        incoming = [
+            {'expiration_date': lot.expiration_date, 'quantity': lot.received_quantity}
+            for lot in obj.received_lots.all()
+        ]
+        return incoming + outgoing
+
     product_name = serializers.CharField(source="product.name", read_only=True)
     reason_display = serializers.CharField(source="get_reason_display", read_only=True)
+    justification_display = serializers.CharField(source="get_justification_display", read_only=True)
 
     class Meta:
         model = StockMovement
         fields = [
             "id", "product", "product_name", "delta", "stock_before",
-            "stock_after", "reason", "reason_display", "note", "sale", "created_at",
+            "stock_after", "reason", "reason_display", "justification", "justification_display", "note", "sale", "created_at", "lots",
         ]
         read_only_fields = fields
 
@@ -196,6 +241,24 @@ class StockAdjustmentSerializer(serializers.Serializer):
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     delta = serializers.IntegerField(min_value=-1000000000, max_value=1000000000)
     note = serializers.CharField(max_length=255, allow_blank=False, trim_whitespace=True)
+    expiration_date = serializers.DateField(required=False, allow_null=True)
+    justification = serializers.ChoiceField(choices=StockMovement.Justification.choices, required=False, default='')
+
+    def validate(self, attrs):
+        delta = attrs.get('delta', 0)
+        expiry = attrs.get('expiration_date')
+        justification = attrs.get('justification', '')
+        incoming = (StockMovement.Justification.RECEIPT, StockMovement.Justification.RETURN)
+        outgoing = (StockMovement.Justification.DAMAGE, StockMovement.Justification.DISCARD)
+        if justification in incoming and delta < 0 or justification in outgoing and delta > 0:
+            raise serializers.ValidationError({'justification': 'A justificativa é incompatível com entrada ou saída.'})
+        if delta > 0 and attrs['product'].perishable and not expiry:
+            raise serializers.ValidationError({'expiration_date': 'Informe a validade do novo lote para este perecível.'})
+        if expiry and delta <= 0:
+            raise serializers.ValidationError({'expiration_date': 'Validade de lote só é permitida em entradas.'})
+        if expiry and expiry < timezone.localdate():
+            raise serializers.ValidationError({'expiration_date': 'Não é permitido receber um lote já vencido.'})
+        return attrs
 
     def validate_delta(self, value):
         if value == 0:
@@ -209,11 +272,21 @@ class StockAdjustmentSerializer(serializers.Serializer):
         after = product.stock + delta
         if not 0 <= after <= 2147483647:
             raise serializers.ValidationError({"delta": "Estoque resultante inválido."})
+        allocations = consume_lots(product, -delta, sale_only=False) if delta < 0 else []
         updated = Product.objects.filter(pk=product.pk, stock=product.stock).update(stock=F("stock") + delta)
         if not updated:
             raise serializers.ValidationError({"delta": "Estoque alterado por outra operação. Tente novamente."})
-        return StockMovement.objects.create(
+        movement = StockMovement.objects.create(
             product=product, delta=delta, stock_before=product.stock,
             stock_after=after, reason=StockMovement.Reason.ADJUSTMENT,
-            note=validated_data["note"],
+            note=validated_data["note"], justification=validated_data.get("justification", ""),
         )
+
+        for lot, qty in allocations:
+            StockLotAllocation.objects.create(movement=movement, lot=lot, quantity=qty)
+        if delta > 0 and validated_data.get('expiration_date'):
+            StockLot.objects.create(
+                product=product, expiration_date=validated_data['expiration_date'],
+                received_quantity=delta, quantity=delta, receipt_movement=movement,
+            )
+        return movement

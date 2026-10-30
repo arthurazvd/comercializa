@@ -1,3 +1,4 @@
+from .stock_lots import stock_snapshot
 from datetime import timedelta
 from decimal import Decimal
 
@@ -66,18 +67,15 @@ def dashboard_data():
         .order_by("-quantity_sold")[:5]
     )
 
-    low_stock = Product.objects.filter(
-        active=True,
-        stock__lte=F("minimum_stock"),
-    ).order_by("stock")
+    active_products = list(Product.objects.filter(active=True).prefetch_related('lots'))
+    low_stock = [p for p in active_products if stock_snapshot(p, today)['available_stock'] <= p.minimum_stock]
+    low_stock.sort(key=lambda p: stock_snapshot(p, today)['available_stock'])
 
-    expiring = Product.objects.filter(
-        active=True,
-        expiration_date__isnull=False,
-        stock__gt=0,
-        expiration_date__gte=today,
-        expiration_date__lte=expiration_limit,
-    ).order_by("expiration_date")
+    all_active = list(Product.objects.filter(active=True, stock__gt=0).prefetch_related('lots'))
+    expired = [p for p in all_active if stock_snapshot(p, today)['expired_units'] > 0]
+    expiring = [p for p in all_active if stock_snapshot(p, today)['expiring_units'] > 0]
+    expired.sort(key=lambda p: stock_snapshot(p, today)['nearest_expiration'] or today)
+    expiring.sort(key=lambda p: stock_snapshot(p, today)['nearest_expiration'] or today)
 
     sold_ids = set(items_30.values_list("product_id", flat=True).distinct())
 
@@ -95,11 +93,6 @@ def dashboard_data():
             "product_id"
         ).annotate(qty=Sum("quantity"))
     }
-
-    expired = Product.objects.filter(
-        active=True, stock__gt=0,
-        expiration_date__lt=today,
-    ).order_by("expiration_date")
 
     # Série diária: as datas e os descontos usam o fuso configurado.
     chart_dates = [today - timedelta(days=offset) for offset in range(6, -1, -1)]
@@ -130,27 +123,27 @@ def dashboard_data():
 
     recommendations = []
 
-    for product in Product.objects.filter(active=True):
+    for product in active_products:
         velocity = float(
             velocity_rows.get(product.id, 0)
         )
 
         days_cover = (
-            product.stock / velocity
+            stock_snapshot(product, today)["available_stock"] / velocity
             if velocity > 0
             else None
         )
 
-        if product.stock <= product.minimum_stock:
+        if stock_snapshot(product, today)["available_stock"] <= product.minimum_stock:
             suggested_qty = calculate_restock_quantity(
-                product.stock,
+                stock_snapshot(product, today)["available_stock"],
                 product.minimum_stock,
                 velocity,
             )
 
             priority = (
                 "alta"
-                if product.stock == 0
+                if stock_snapshot(product, today)["available_stock"] == 0
                 or (
                     days_cover is not None
                     and days_cover <= 3
@@ -175,18 +168,22 @@ def dashboard_data():
                 }
             )
 
-        if product.expiration_date and product.expiration_date < today and product.stock > 0:
+        product_snapshot = stock_snapshot(product, today)
+        if product_snapshot["expired_units"] > 0:
             recommendations.append({
                 "type": "vencido", "priority": "alta",
                 "product_id": product.id, "product": product.name,
-                "message": "Bloquear venda e separar unidades vencidas.",
+                "message": "Separar unidades vencidas; vender apenas o saldo válido.",
                 "reason": "Validade já ultrapassada.",
             })
 
-        if product.expiration_date:
-            days_to_expire = (
-                product.expiration_date - today
-            ).days
+        if product_snapshot["expiring_units"]:
+            valid_dates = [l.expiration_date for l in product.lots.all()
+                           if l.quantity and today <= l.expiration_date <= expiration_limit]
+            legacy_qty = product.stock - sum(l.quantity for l in product.lots.all())
+            if legacy_qty > 0 and product.expiration_date and today <= product.expiration_date <= expiration_limit:
+                valid_dates.append(product.expiration_date)
+            days_to_expire = (min(valid_dates) - today).days if valid_dates else 16
 
             if (
                 0 <= days_to_expire <= 15
@@ -257,14 +254,14 @@ def dashboard_data():
             "products_count": Product.objects.filter(
                 active=True
             ).count(),
-            "low_stock_count": low_stock.count(),
-            "expiring_count": expiring.count(),
-            "expired_count": expired.count(),
+            "low_stock_count": len(low_stock),
+            "expiring_count": len(expiring),
+            "expired_count": len(expired),
         },
         "top_products": top_products,
         "daily_revenue": daily_revenue,
         "expired": [
-            {"id": p.id, "name": p.name, "stock": p.stock, "expiration_date": p.expiration_date}
+            {"id": p.id, "name": p.name, "stock": p.stock, "expiration_date": stock_snapshot(p, today)["nearest_expiration"]}
             for p in expired[:10]
         ],
         "low_stock": [
@@ -272,6 +269,7 @@ def dashboard_data():
                 "id": product.id,
                 "name": product.name,
                 "stock": product.stock,
+                "available_stock": stock_snapshot(product, today)["available_stock"],
                 "minimum_stock": product.minimum_stock,
             }
             for product in low_stock[:10]
@@ -281,7 +279,7 @@ def dashboard_data():
                 "id": product.id,
                 "name": product.name,
                 "stock": product.stock,
-                "expiration_date": product.expiration_date,
+                "expiration_date": stock_snapshot(product, today)["nearest_expiration"],
             }
             for product in expiring[:10]
         ],
