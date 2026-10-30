@@ -325,3 +325,20 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 @media (prefers-reduced-motion: reduce) { .toast-notice, .toast-enter-active, .toast-leave-active { animation: none; transition: none; } }
 
 .chart-refreshing { align-self: end; color: var(--accent); font-weight: 700; font-size: 11px; }
+
+/* Acesso à versão online, responsivo e compatível com tema claro/escuro. */
+.auth-page { min-height: 100vh; padding: 24px; display: grid; place-items: center; background: linear-gradient(135deg, #0e2032 0%, #183649 65%, #116857 100%); }
+.auth-card { width: min(100%, 440px); padding: 36px; border-radius: 22px; background: var(--surface, #fff); border: 1px solid var(--stroke, #e5eaf0); box-shadow: 0 22px 80px #04141b55; color: var(--ink, #182538); }
+.auth-logo { display: block; max-height: 136px; max-width: 155px; object-fit: contain; margin: 0 auto 12px; padding: 10px; border-radius: 14px; background: #102538; }
+.auth-card h1 { font-size: 25px; margin: 9px 0 10px; }
+.auth-card > p { margin-bottom: 25px; }
+.auth-form { display: grid; gap: 16px; margin-top: 22px; }
+.auth-form label { display: grid; gap: 7px; font-size: 12px; color: var(--ink, #182538); font-weight: 800; }
+.auth-form input { width: 100%; padding: 12px 13px; border: 1px solid var(--stroke, #d4dee4); border-radius: 10px; background: var(--surface, white); color: var(--ink, #182538); }
+.auth-form .btn { min-height: 44px; font-size: 14px; }
+.auth-error { border: 1px solid #e48a87; color: #a93535; border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.6; background: #fff0ef; }
+.auth-error button { border: 0; margin-left: 8px; background: transparent; color: #a93535; font-weight: 800; text-decoration: underline; }
+.auth-note { display: block; margin-top: 26px; font-size: 10px; line-height: 1.5; color: var(--muted, #667589); text-align: center; }
+.topbar-user { font-size: 11px; color: var(--muted, #667589); max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-actions { display: flex; align-items: center; gap: 9px; }
+@media (max-width: 600px) { .auth-card { padding: 22px; } .topbar-user { display: none; } }

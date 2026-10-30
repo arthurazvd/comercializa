@@ -26,7 +26,16 @@ O repositório foi separado em:
 
 Para detalhes dos novos lotes, gráficos e validação: [Iteração 04](docs/20-iteracao-04-experiencia-lotes-graficos-2026-10-30.md). Para identidade visual: [Iteração 03 — Identidade responsiva e rodapé](docs/19-identidade-responsiva-footer-2026-10-30.md). Para contratos de API e relatórios: [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md).
 
-**Nota:** receita após descontos não é lucro líquido (despesas e custos ainda não são subtraídos). Esta versão é somente para desenvolvimento local, pois não tem autenticação.
+**Nota:** receita após descontos não é lucro líquido (despesas e custos ainda não são subtraídos).
+
+## 🌐 Publicação gratuita: Cloudflare Pages + Render + Neon
+
+O projeto agora inclui implantação pública com **login por token, banco PostgreSQL no Neon, Django no Render Free e frontend no Cloudflare Pages**. O modo local segue funcionando com SQLite e sem login (somente para desenvolvimento). O deploy de produção **exige** `DEBUG=False`, banco PostgreSQL e chave secreta.
+
+📋 **Siga o passo a passo em [DEPLOY_GRATIS.md](DEPLOY_GRATIS.md)**. Os arquivos `render.yaml` e `backend/build.sh` já contêm a configuração de publicação, e o primeiro usuário administrativo é criado automaticamente no primeiro build a partir de variáveis de ambiente do Render (o plano gratuito não oferece terminal remoto).
+
+**Importante:** o PostgreSQL remoto inicia vazio; o banco `backend/db.sqlite3` da instalação local não é migrado automaticamente. Não publique o banco local nem o arquivo `.env` no GitHub. O plano gratuito serve para **protótipo/testes**, sem garantia de disponibilidade ou backups gerenciados.
+
 
 ## Escopo desta primeira versão
 
@@ -54,7 +63,8 @@ A parte de CRUD existe principalmente para gerar os dados usados pelo módulo de
 - Python
 - Django
 - Django REST Framework
-- SQLite
+- SQLite (local) / PostgreSQL no Neon (online)
+- Gunicorn / WhiteNoise no Render
 
 ### Frontend
 - Vue 3
@@ -84,7 +94,7 @@ API: `http://127.0.0.1:8000/api/`
 > Se você já rodou o seed antigo de supermercado e quer ocultar aqueles itens: `python manage.py seed_demo --retire-legacy` (desativa seis SKUs específicos).
 > O seed é idempotente e não modifica produtos existentes ao executar novamente.
 > Os comandos acima usam dados de demonstração. Não execute `seed_demo` em uma base de produção.
-> A API ainda não possui autenticação; **use somente em ambiente local de desenvolvimento** até implementar controle de acesso e configuração segura.
+> Na **produção** (`DEBUG=False`), todas as rotas de negócio requerem login; a interface oferece usuário/senha e salva o token somente na sessão da aba. Localmente (`DEBUG=True`) a autenticação é dispensada apenas para facilitar os testes. Não exponha a versão local diretamente à internet.
 
 ### 2. Frontend
 

@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { api } from './api'
+import { api, getAuthToken, saveAuthToken, clearAuthToken } from './api'
 import AppIcon from './components/AppIcon.vue'
 import DecisionChart from './components/DecisionChart.vue'
 import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, concentrationPercentage } from './charts'
@@ -10,6 +10,15 @@ import { defaultReportFilters, queryReport, filteredInventory, matchProductSearc
 import { readTheme, saveTheme } from './uiPreferences'
 import { BRAND_ASSETS, getCopyrightYear } from './branding'
 
+// A interface só carrega dados após verificar a sessão. Produção exige login.
+const authChecking = ref(true)
+const authRequired = ref(true)
+const authenticated = ref(false)
+const authUsername = ref('')
+const authStartupError = ref('')
+const loginBusy = ref(false)
+const loginForm = ref({ username: '', password: '' })
+const loginError = ref('')
 const tab = ref('dashboard')
 const products = ref([])
 const categories = ref([])
@@ -108,16 +117,88 @@ function onKeydown(event) { if (event.key === 'Escape') closeModal() }
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   yearRefreshInterval = window.setInterval(() => { copyrightYear.value = getCopyrightYear() }, 60_000)
-  loadAll()
-  refreshDashboardCharts()
+  window.addEventListener('comercializa:unauthorized', onUnauthorized)
+  initializeSession()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('comercializa:unauthorized', onUnauthorized)
   window.clearInterval(yearRefreshInterval)
   toastController.dispose()
   window.clearTimeout(saleSearchBlurTimer)
   document.body.style.overflow = ''
 })
+function onUnauthorized() {
+  if (!authRequired.value) return
+  authenticated.value = false
+  authUsername.value = ''
+  dashboard.value = null
+  products.value = []
+  categories.value = []
+  sales.value = []
+  movements.value = []
+  loginError.value = 'Sua sessão expirou ou foi encerrada. Entre novamente.'
+}
+async function initializeSession() {
+  authChecking.value = true
+  authStartupError.value = ''
+  try {
+    const { data } = await api.get('auth/status/')
+    authRequired.value = Boolean(data.authentication_required)
+    authenticated.value = !authRequired.value || Boolean(data.authenticated)
+    authUsername.value = data.username || ''
+    if (authenticated.value) {
+      await loadAll()
+      refreshDashboardCharts()
+    } else if (getAuthToken()) {
+      clearAuthToken()
+    }
+  } catch (error) {
+    authRequired.value = true
+    authenticated.value = false
+    if (error?.response?.status === 401) {
+      clearAuthToken()
+      loginError.value = 'Sua sessão expirou. Entre novamente.'
+    } else {
+      authStartupError.value = 'Não foi possível conectar ao servidor. Confira o endereço da API e tente novamente.'
+    }
+  } finally { authChecking.value = false }
+}
+async function signIn() {
+  if (loginBusy.value) return
+  loginBusy.value = true
+  loginError.value = ''
+  try {
+    const { data } = await api.post('auth/login/', {
+      username: loginForm.value.username.trim(),
+      password: loginForm.value.password,
+    })
+    if (!data.token) throw new Error('O servidor não retornou um token válido.')
+    saveAuthToken(data.token)
+    const session = await api.get('auth/status/')
+    if (!session.data.authenticated) throw new Error('Não foi possível confirmar a sessão.')
+    authUsername.value = session.data.username || data.username || ''
+    authRequired.value = true
+    authenticated.value = true
+    loginForm.value.password = ''
+    authStartupError.value = ''
+    await loadAll()
+    refreshDashboardCharts()
+  } catch (error) {
+    clearAuthToken()
+    authenticated.value = false
+    loginError.value = error.response ? errorText(error) : (error.message || errorText(error))
+  } finally { loginBusy.value = false }
+}
+async function signOut() {
+  try { await api.post('auth/logout/') } catch { /* logout local mesmo sem resposta da API */ }
+  clearAuthToken()
+  onUnauthorized()
+  loginError.value = ''
+  tab.value = 'dashboard'
+  modal.value = ''
+  dashboardReport.value = null
+}
 function alertUser(text, type = 'success') { toastController.show(text, type) }
 function errorText(error) {
   const data = error?.response?.data
@@ -244,7 +325,29 @@ function labelStatus(p) {
 </script>
 
 <template>
-<div class="layout">
+<section v-if="authChecking || (authRequired && !authenticated)" class="auth-page">
+  <div class="auth-card">
+    <img src="/logo-comercializa-vertical.svg" alt="Comercializa" class="auth-logo" />
+    <template v-if="authChecking">
+      <h1>Conectando ao Comercializa…</h1>
+      <p>Verificando o acesso ao sistema.</p>
+    </template>
+    <template v-else>
+      <span class="eyebrow">ACESSO SEGURO</span>
+      <h1>Entrar no Comercializa<span class="title-accent">.</span></h1>
+      <p>Use o usuário e a senha cadastrados para acessar vendas, produtos e estoque.</p>
+      <div v-if="authStartupError" class="auth-error" role="alert">{{ authStartupError }} <button type="button" @click="initializeSession">Tentar conexão</button></div>
+      <form class="auth-form" @submit.prevent="signIn">
+        <label>Usuário<input v-model="loginForm.username" name="username" autocomplete="username" required autofocus placeholder="Seu usuário" /></label>
+        <label>Senha<input v-model="loginForm.password" name="password" type="password" autocomplete="current-password" required placeholder="Sua senha" /></label>
+        <div v-if="loginError" class="auth-error" role="alert">{{ loginError }}</div>
+        <button type="submit" class="btn primary" :disabled="loginBusy">{{ loginBusy ? 'Entrando…' : 'Entrar no sistema' }}</button>
+      </form>
+    </template>
+    <small class="auth-note">Seus dados ficam no banco de dados do sistema, não no navegador.</small>
+  </div>
+</section>
+<div v-else class="layout">
   <aside class="sidebar">
     <div class="brand">
       <img :src="BRAND_ASSETS.verticalOnDark" alt="Comercializa" class="brand-logo brand-logo-vertical" width="110" height="151" />
@@ -259,10 +362,10 @@ function labelStatus(p) {
       <button :class="{ active: tab === 'inventory' }" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
       <button :class="{ active: tab === 'movements' }" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
     </nav>
-    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> Ambiente de desenvolvimento</div><small>Gestão de loja de variedades</small></div>
+    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades</small></div>
   </aside>
   <main class="main-content">
-    <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="loadAll"><AppIcon name="refresh" /></button></div></div>
+    <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="loadAll"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
     <Transition name="toast"><div v-if="toast" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer"></span></div></Transition>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
 
