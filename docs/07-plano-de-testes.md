@@ -90,3 +90,10 @@ Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-
 - `frontend/tests/utils.test.js`: validação do carrinho e utilitários preexistentes. **10 testes aprovados.**
 - Teste manual pendente: dois temas, responsividade, fluxo de popup, exportação aberta no Excel, busca do carrinho, teclado e Escape.
 - `npm run build` e `pytest` devem ser obrigatórios na CI antes do merge.
+
+
+## Iteração 03 — identidade responsiva e footer (30/10/2026)
+
+- `frontend/tests/branding.test.js`: testa atualização do copyright no novo ano, caminhos e viewBox das cinco variações SVG, favicon sem wordmark, seleção responsiva da logo e presença do footer.
+- Executar: `cd frontend && npm test && npm run build`.
+- Inspeção visual manual de desktop/celular, dois temas e favicon conforme checklist em [Iteração 03](19-identidade-responsiva-footer-2026-10-30.md).

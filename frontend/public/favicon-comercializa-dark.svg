@@ -1,0 +1,305 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="-876 237 597 525"><defs>
+    <style>
+      .st0 {
+        fill: url(#Gradiente_sem_nome_151);
+      }
+
+      .st1 {
+        fill: url(#Gradiente_sem_nome_272);
+      }
+
+      .st2 {
+        fill: url(#Gradiente_sem_nome_159);
+      }
+
+      .st3 {
+        fill: url(#Gradiente_sem_nome_153);
+      }
+
+      .st4 {
+        fill: url(#Gradiente_sem_nome_1511);
+      }
+
+      .st5 {
+        fill: url(#Gradiente_sem_nome_1517);
+      }
+
+      .st6 {
+        fill: url(#Gradiente_sem_nome_152);
+      }
+
+      .st7 {
+        fill: url(#Gradiente_sem_nome_2716);
+      }
+
+      .st8 {
+        fill: url(#Gradiente_sem_nome_1521);
+      }
+
+      .st9 {
+        fill: url(#Gradiente_sem_nome_101);
+      }
+
+      .st10 {
+        fill: url(#Gradiente_sem_nome_2717);
+      }
+
+      .st11 {
+        fill: url(#Gradiente_sem_nome_1522);
+      }
+
+      .st12 {
+        fill: url(#Gradiente_sem_nome_301);
+      }
+
+      .st13 {
+        fill: url(#Gradiente_sem_nome_1513);
+      }
+
+      .st14 {
+        fill: url(#Gradiente_sem_nome_1527);
+      }
+
+      .st15 {
+        fill: url(#Gradiente_sem_nome_273);
+      }
+
+      .st16 {
+        fill: url(#Gradiente_sem_nome_2711);
+      }
+
+      .st17 {
+        fill: url(#Gradiente_sem_nome_302);
+      }
+
+      .st18 {
+        fill: url(#Gradiente_sem_nome_1526);
+      }
+
+      .st19 {
+        fill: url(#Gradiente_sem_nome_27);
+      }
+
+      .st20 {
+        fill: url(#Gradiente_sem_nome_274);
+      }
+
+      .st21 {
+        fill: url(#Gradiente_sem_nome_1512);
+      }
+
+      .st22 {
+        fill: url(#Gradiente_sem_nome_157);
+      }
+
+      .st23 {
+        fill: url(#Gradiente_sem_nome_15);
+      }
+
+      .st24 {
+        fill: url(#Gradiente_sem_nome_271);
+      }
+
+      .st25 {
+        fill: url(#Gradiente_sem_nome_1515);
+      }
+
+      .st26 {
+        fill: url(#Gradiente_sem_nome_276);
+      }
+
+      .st27 {
+        fill: url(#Gradiente_sem_nome_1525);
+      }
+
+      .st28 {
+        fill: url(#Gradiente_sem_nome_154);
+      }
+
+      .st29 {
+        fill: url(#Gradiente_sem_nome_2712);
+      }
+
+      .st30 {
+        fill: url(#Gradiente_sem_nome_1518);
+      }
+
+      .st31 {
+        fill: url(#Gradiente_sem_nome_156);
+      }
+
+      .st32 {
+        fill: url(#Gradiente_sem_nome_1519);
+      }
+
+      .st33 {
+        fill: url(#Gradiente_sem_nome_2715);
+      }
+
+      .st34 {
+        fill: url(#Gradiente_sem_nome_278);
+      }
+
+      .st35 {
+        fill: url(#Gradiente_sem_nome_277);
+      }
+
+      .st36 {
+        fill: url(#Gradiente_sem_nome_1514);
+      }
+
+      .st37 {
+        fill: url(#Gradiente_sem_nome_158);
+      }
+
+      .st38 {
+        fill: url(#Gradiente_sem_nome_30);
+      }
+
+      .st39 {
+        fill: url(#Gradiente_sem_nome_279);
+      }
+
+      .st40 {
+        fill: url(#Gradiente_sem_nome_155);
+      }
+
+      .st41 {
+        fill: url(#Gradiente_sem_nome_1520);
+      }
+
+      .st42 {
+        fill: url(#Gradiente_sem_nome_2713);
+      }
+
+      .st43 {
+        fill: url(#Gradiente_sem_nome_303);
+      }
+
+      .st44 {
+        fill: url(#Gradiente_sem_nome_43);
+      }
+
+      .st45 {
+        fill: url(#Gradiente_sem_nome_275);
+      }
+
+      .st46 {
+        fill: url(#Gradiente_sem_nome_2714);
+      }
+
+      .st47 {
+        fill: url(#Gradiente_sem_nome_2710);
+      }
+
+      .st48 {
+        fill: url(#Gradiente_sem_nome_1510);
+      }
+
+      .st49 {
+        fill: url(#Gradiente_sem_nome_63);
+      }
+
+      .st50 {
+        fill: url(#Gradiente_sem_nome_1523);
+      }
+
+      .st51 {
+        fill: url(#Gradiente_sem_nome_1524);
+      }
+
+      .st52 {
+        fill: url(#Gradiente_sem_nome_41);
+      }
+
+      .st53 {
+        fill: url(#Gradiente_sem_nome_1516);
+      }
+    </style>
+    <linearGradient id="Gradiente_sem_nome_30" data-name="Gradiente sem nome 30" x1="534.1" y1="791.7" x2="619.8" y2="706.1" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#48b384" />
+      <stop offset="1" stop-color="#198063" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_27" data-name="Gradiente sem nome 27" x1="363.4" y1="338.5" x2="470.2" y2="231.7" gradientTransform="translate(94.1 -83.4) rotate(13.3)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#48b384" />
+      <stop offset="1" stop-color="#198063" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_271" data-name="Gradiente sem nome 27" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_272" data-name="Gradiente sem nome 27" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_101" data-name="Gradiente sem nome 101" x1="500" y1="797.5" x2="500" y2="201.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" />
+      <stop offset="1" stop-color="#ddd" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_273" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="translate(-120.7123 1275.2965) rotate(13.2826)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_274" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="translate(0 1152)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_275" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="translate(0 1152)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_43" data-name="Gradiente sem nome 43" x1="-637.6" y1="738.9" x2="-637.6" y2="271.2" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" />
+      <stop offset="1" stop-color="#ddd" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_41" data-name="Gradiente sem nome 41" x1="-762.9" y1="738.9" x2="-762.9" y2="271.2" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" />
+      <stop offset="1" stop-color="#fff" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_301" data-name="Gradiente sem nome 30" x1="-1275" y1="547.6" x2="-1223.4" y2="496" xlink:href="#Gradiente_sem_nome_30" />
+    <linearGradient id="Gradiente_sem_nome_276" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="translate(-192.1725 1585.376) rotate(13.2826)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_277" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="translate(0 1152)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_278" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="translate(0 1152)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_63" data-name="Gradiente sem nome 63" x1="-1653" y1="553.4" x2="-1653" y2="446.6" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" />
+      <stop offset="1" stop-color="#ddd" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_15" data-name="Gradiente sem nome 15" x1="359.4" y1="-508.2" x2="359.4" y2="-685.7" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0e1c2c" />
+      <stop offset="1" stop-color="#1d2d42" />
+    </linearGradient>
+    <linearGradient id="Gradiente_sem_nome_151" data-name="Gradiente sem nome 15" x1="439.4" y1="-508.2" x2="439.4" y2="-685.7" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_152" data-name="Gradiente sem nome 15" x1="527.1" y1="-508.2" x2="527.1" y2="-685.7" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_302" data-name="Gradiente sem nome 30" x1="534.1" y1="-360.3" x2="619.8" y2="-445.9" xlink:href="#Gradiente_sem_nome_30" />
+    <linearGradient id="Gradiente_sem_nome_153" data-name="Gradiente sem nome 15" x1="324.8" y1="-350.6" x2="324.8" y2="-528.1" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_154" data-name="Gradiente sem nome 15" x1="370.9" y1="-350.6" x2="370.9" y2="-528.1" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_155" data-name="Gradiente sem nome 15" x1="453.6" y1="-350.6" x2="453.6" y2="-528.1" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_156" data-name="Gradiente sem nome 15" x1="397.9" y1="-640.1" x2="397.9" y2="-817.5" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_157" data-name="Gradiente sem nome 15" x1="556" y1="-640.1" x2="556" y2="-817.5" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_158" data-name="Gradiente sem nome 15" x1="656.6" y1="-640.1" x2="656.6" y2="-817.5" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_279" data-name="Gradiente sem nome 27" y1="-813.5" x2="470.2" y2="-920.3" gradientTransform="translate(-170.5 -114.3) rotate(13.3)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2710" data-name="Gradiente sem nome 27" y1="-813.5" x2="470.2" y2="-920.3" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2711" data-name="Gradiente sem nome 27" y1="-813.5" x2="470.2" y2="-920.3" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_159" data-name="Gradiente sem nome 15" x1="567.6" y1="-772.9" x2="567.6" y2="-950.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1510" data-name="Gradiente sem nome 15" x1="387.2" y1="-772.9" x2="387.2" y2="-950.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1511" data-name="Gradiente sem nome 15" x1="339.7" y1="-772.9" x2="339.7" y2="-950.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_2712" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="translate(-120.7 123.3) rotate(13.3)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2713" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2714" data-name="Gradiente sem nome 27" x1="-700.5" y1="-519.9" x2="-418.9" y2="-801.5" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_1512" data-name="Gradiente sem nome 15" x1="-637.6" y1="-413.1" x2="-637.6" y2="-880.8" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1513" data-name="Gradiente sem nome 15" x1="-762.9" y1="-413.1" x2="-762.9" y2="-880.8" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_303" data-name="Gradiente sem nome 30" x1="-1275" y1="-604.4" x2="-1223.4" y2="-656" xlink:href="#Gradiente_sem_nome_30" />
+    <linearGradient id="Gradiente_sem_nome_2715" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="translate(-192.2 433.4) rotate(13.3)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2716" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_2717" data-name="Gradiente sem nome 27" x1="-1982.4" y1="-623" x2="-1918.1" y2="-687.3" gradientTransform="matrix(1,0,0,1,0,0)" xlink:href="#Gradiente_sem_nome_27" />
+    <linearGradient id="Gradiente_sem_nome_1514" data-name="Gradiente sem nome 15" x1="-1859.5" y1="-598.6" x2="-1859.5" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1515" data-name="Gradiente sem nome 15" x1="-1763.1" y1="-598.6" x2="-1763.1" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1516" data-name="Gradiente sem nome 15" x1="-1667.9" y1="-598.6" x2="-1667.9" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1517" data-name="Gradiente sem nome 15" x1="-1607.3" y1="-598.6" x2="-1607.3" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1518" data-name="Gradiente sem nome 15" x1="-1556.1" y1="-598.6" x2="-1556.1" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1519" data-name="Gradiente sem nome 15" x1="-1507.9" y1="-598.6" x2="-1507.9" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1520" data-name="Gradiente sem nome 15" x1="-1507.9" y1="-598.6" x2="-1507.9" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1521" data-name="Gradiente sem nome 15" x1="-1455.1" y1="-598.6" x2="-1455.1" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1522" data-name="Gradiente sem nome 15" x1="-1401" y1="-598.6" x2="-1401" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1523" data-name="Gradiente sem nome 15" x1="-1373.2" y1="-598.6" x2="-1373.2" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1524" data-name="Gradiente sem nome 15" x1="-1373.2" y1="-598.6" x2="-1373.2" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1525" data-name="Gradiente sem nome 15" x1="-1323.4" y1="-598.6" x2="-1323.4" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1526" data-name="Gradiente sem nome 15" x1="-1968" y1="-598.6" x2="-1968" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+    <linearGradient id="Gradiente_sem_nome_1527" data-name="Gradiente sem nome 15" x1="-1996.6" y1="-598.6" x2="-1996.6" y2="-705.4" xlink:href="#Gradiente_sem_nome_15" />
+  </defs>
+  <g>
+    <g>
+      <circle class="st15" cx="-589.8" cy="695.3" r="33.6" transform="translate(-175.5 -116.9) rotate(-13.3)" />
+      <circle class="st20" cx="-452.1" cy="695.3" r="33.6" />
+      <path class="st45" d="M-320.8,453h-364.5l-10.8-18.8-24-41.5c-1.9-3.2-5.3-5.2-9-5.2h-81.6c-8,0-13,8.6-9,15.6l15,25.9c1.9,3.2,5.3,5.2,9,5.2h45.6l97.6,169.1,24,41.5c1.9,3.2,5.3,5.2,9,5.2h196.9c3.7,0,7.1-2,9-5.2l15-26c4-6.9-1-15.6-9-15.6h-190.9l-17.1-29.7h237.1c3.7,0,7.1-2,9-5.2l15-25.9c4-6.9-1-15.5-9-15.5h-279.1l-15.8-27.3h322.6c3.7,0,7.1-2,9-5.2l15-25.9c4-6.9-1-15.6-9-15.6Z" />
+    </g>
+    <path class="st44" d="M-706.1,378.6c10.4-8.1,22-14.6,34.8-19.7,19.5-7.8,40.9-11.8,64.2-11.8s49.8,5,70.2,15.1c7.3,3.6,14.2,7.8,20.8,12.7l36-34.3c10.1-9.7,8.7-26.3-2.9-34.1-7.2-4.8-14.6-9.1-22.3-12.9-30.2-15-64.4-22.5-102.5-22.5s-66.2,6-95.1,17.8c-28.9,11.9-53.8,28.3-74.6,49.4-9,9.1-17.2,18.9-24.5,29.5h72.9c8.9,0,17.3,4,23,10.8Z" />
+    <path class="st52" d="M-692.3,647.1c-10.7-6.4-20.4-14-29-22.8-13.9-14.1-24.8-31-32.6-50.7-7.8-19.7-11.7-41.5-11.7-65.2s2.2-34.9,6.6-50.4l-2.4-4.1h-34.3c-10.7,0-20.7-5.7-26-15l-8.8-15.1c-9.2,26.1-13.8,54.2-13.8,84.6s5.9,66.2,17.8,95.1c11.9,28.9,28.2,53.9,49,74.9,14.8,15,31.7,27.7,50.7,38,11.3,6.2,25.6,1.1,30.6-10.9l13-31.1c4.2-10.1.3-21.7-9.1-27.3Z" />
+  </g>
+  </svg>

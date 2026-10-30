@@ -37,3 +37,5 @@
 - [17 — Melhorias implementadas em 29/10/2026, testes e pendências](17-melhorias-2026-10-29.md)
 
 - [18 — Iteração 02: identidade visual, catálogo, posição de estoque, relatórios e Excel](18-identidade-estoque-relatorios-2026-10-29.md)
+
+- [19 — Iteração 03: logos responsivas, favicon e rodapé](19-identidade-responsiva-footer-2026-10-30.md)

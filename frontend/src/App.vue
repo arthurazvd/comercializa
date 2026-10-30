@@ -5,6 +5,7 @@ import AppIcon from './components/AppIcon.vue'
 import { formatMoney, localDateISO, eligibleProducts, calculateCart, validCart } from './utils'
 import { defaultReportFilters, queryReport, filteredInventory, matchProductSearch, inventoryStatus } from './reportUtils'
 import { readTheme, saveTheme } from './uiPreferences'
+import { BRAND_ASSETS, getCopyrightYear } from './branding'
 
 const tab = ref('dashboard')
 const products = ref([])
@@ -16,6 +17,8 @@ const stockOverview = ref(null)
 const finance = ref(null)
 const modal = ref('')
 const theme = ref(readTheme())
+const copyrightYear = ref(getCopyrightYear())
+let yearRefreshInterval
 const message = ref('')
 const messageType = ref('success')
 const busy = ref(false)
@@ -63,8 +66,16 @@ watch(theme, value => { document.documentElement.dataset.theme = value; saveThem
 watch(modal, value => { document.body.style.overflow = value ? 'hidden' : '' })
 watch(() => reportFilters.value.category, () => { reportFilters.value.product = '' })
 function onKeydown(event) { if (event.key === 'Escape') closeModal() }
-onMounted(() => { window.addEventListener('keydown', onKeydown); loadAll() })
-onUnmounted(() => { window.removeEventListener('keydown', onKeydown); document.body.style.overflow = '' })
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  yearRefreshInterval = window.setInterval(() => { copyrightYear.value = getCopyrightYear() }, 60_000)
+  loadAll()
+})
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeydown)
+  window.clearInterval(yearRefreshInterval)
+  document.body.style.overflow = ''
+})
 function alertUser(text, type = 'success') { message.value = text; messageType.value = type }
 function errorText(error) {
   const data = error?.response?.data
@@ -168,7 +179,11 @@ function labelStatus(p) {
 <template>
 <div class="layout">
   <aside class="sidebar">
-    <div class="brand"><img src="/logo-comercializa.svg" alt="Comercializa" class="brand-logo" /><div class="brand-subtitle">SEU NEGÓCIO EM MOVIMENTO</div></div>
+    <div class="brand">
+      <img :src="BRAND_ASSETS.verticalOnDark" alt="Comercializa" class="brand-logo brand-logo-vertical" width="138" height="208" />
+      <img :src="BRAND_ASSETS.horizontalOnDark" alt="Comercializa" class="brand-logo brand-logo-horizontal" width="225" height="42" />
+      <div class="brand-subtitle">SEU NEGÓCIO EM MOVIMENTO</div>
+    </div>
     <div class="sidebar-label">MENU PRINCIPAL</div>
     <nav aria-label="Navegação principal">
       <button :class="{ active: tab === 'dashboard' }" @click="tab = 'dashboard'"><AppIcon name="dashboard" /> Visão geral</button>
@@ -215,6 +230,16 @@ function labelStatus(p) {
     </section>
 
     <section v-if="tab === 'movements'"><header class="page-header"><div><span class="eyebrow">ESTOQUE / RASTREABILIDADE</span><h1>Movimentações<span class="title-accent">.</span></h1><p>Registre entradas e saídas com justificativa. Consulte o histórico detalhado.</p></div><button class="btn secondary" @click="openInventory()"><AppIcon name="package" :size="16" /> Ver estoque</button></header><div class="grid-form"><form class="panel" @submit.prevent="adjustStock"><div class="panel-heading"><div><span class="eyebrow">ENTRADA / SAÍDA</span><h2>Ajustar saldo</h2></div><AppIcon name="arrows" /></div><label>Produto<select v-model="stockProduct" required><option value="">Selecione um produto</option><option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }} · {{ p.stock }} un.</option></select></label><label>Quantidade (positiva = entrada; negativa = saída)<input v-model.number="stockDelta" type="number" step="1" required /></label><label>Justificativa<input v-model="stockNote" required maxlength="255" placeholder="Ex.: Recebimento, inventário, avaria..." /></label><button class="btn primary" type="submit" :disabled="busy || !stockProduct || !Number(stockDelta) || !stockNote.trim()"><AppIcon name="check" :size="17" /> {{ busy ? 'Salvando…' : 'Registrar movimentação' }}</button></form><article class="panel"><div class="panel-heading"><div><span class="eyebrow">AUDITORIA</span><h2>Histórico de estoque</h2></div><span class="count-pill">{{ filteredMovements.length }} registros</span></div><label>Filtrar por produto<select v-model="movementProduct"><option value="">Todos os produtos</option><option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><div v-if="!filteredMovements.length" class="empty">Nenhum movimento encontrado.</div><div v-for="m in filteredMovements.slice(0, 50)" :key="m.id" class="detail-row"><div><strong>{{ m.product_name }}</strong><small>{{ m.reason_display }} · {{ m.note || 'Sem observação' }}</small><small>{{ m.stock_before }} → {{ m.stock_after }} un. · {{ dateTime(m.created_at) }}</small></div><span :class="['change-amount', m.delta > 0 ? 'positive' : 'negative']">{{ m.delta > 0 ? '+' : '' }}{{ m.delta }}</span></div></article></div></section>
+    <footer class="app-footer" aria-label="Rodapé do Comercializa">
+      <div class="footer-brand">
+        <img :src="BRAND_ASSETS.horizontalOnLight" alt="Comercializa" class="footer-logo footer-logo-light" width="174" height="32" />
+        <img :src="BRAND_ASSETS.horizontalOnDark" alt="Comercializa" class="footer-logo footer-logo-dark" width="174" height="32" />
+      </div>
+      <div class="footer-copy">
+        <span>Desenvolvido por <strong>Arthur Azevêdo</strong></span>
+        <small>© {{ copyrightYear }} Comercializa. Todos os direitos reservados.</small>
+      </div>
+    </footer>
   </main>
 
   <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
