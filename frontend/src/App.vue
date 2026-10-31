@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { api, getAuthToken, saveAuthToken, clearAuthToken } from './api'
+import { createLatestLoader, upsertById, removeById } from './dataSync'
 import AppIcon from './components/AppIcon.vue'
 import DecisionChart from './components/DecisionChart.vue'
 import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, concentrationPercentage } from './charts'
@@ -130,6 +131,9 @@ onUnmounted(() => {
 })
 function onUnauthorized() {
   if (!authRequired.value) return
+  // Uma requisição iniciada antes do logout não pode restaurar dados da sessão.
+  for (const name of Object.keys(resourceEndpoints)) resourceLoader.invalidate(name)
+  ++dashboardChartRequest
   authenticated.value = false
   authUsername.value = ''
   dashboard.value = null
@@ -207,47 +211,97 @@ function errorText(error) {
   if (data.detail) return String(data.detail)
   return Object.entries(data).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : value}`).join(' · ')
 }
+// Cada lista é consultada separadamente. Respostas antigas não podem sobrescrever
+// alterações que já foram confirmadas e mostradas na interface.
+const resourceEndpoints = {
+  products: ['products/', products],
+  categories: ['categories/', categories],
+  dashboard: ['dashboard/', dashboard],
+  sales: ['sales/', sales],
+  movements: ['stock-movements/', movements],
+  stockOverview: ['stock-overview/', stockOverview],
+}
+const resourceLoader = createLatestLoader(
+  async name => (await api.get(resourceEndpoints[name][0])).data,
+  (name, data) => { resourceEndpoints[name][1].value = data },
+)
+async function refreshResources(names, { showError = false } = {}) {
+  const results = await Promise.allSettled(names.map(name => resourceLoader.load(name)))
+  const failed = results.filter(result => result.status === 'rejected')
+  if (failed.length) {
+    console.warn('Consultas não atualizadas:', failed.map(result => result.reason))
+    // Uma falha ao buscar estatísticas não deve ser anunciada como falha ao salvar.
+    if (showError && failed.length === results.length) {
+      alertUser('Não foi possível carregar os dados. Confira a conexão e tente atualizar.', 'error')
+    }
+  }
+  return !failed.length
+}
 async function loadAll() {
   loading.value = true
-  try {
-    const [p, c, d, s, m, st] = await Promise.all([
-      api.get('products/'), api.get('categories/'), api.get('dashboard/'), api.get('sales/'), api.get('stock-movements/'), api.get('stock-overview/'),
-    ])
-    products.value = p.data; categories.value = c.data; dashboard.value = d.data
-    sales.value = s.data; movements.value = m.data; stockOverview.value = st.data
-  } catch (error) { alertUser(errorText(error), 'error') }
+  try { await refreshResources(Object.keys(resourceEndpoints), { showError: true }) }
   finally { loading.value = false }
+}
+function refreshCatalogInBackground() {
+  // As listas principais já receberam a resposta do POST/PUT/PATCH/DELETE.
+  // As consultas abaixo servem só para conciliar os demais painéis.
+  void refreshResources(['products', 'dashboard', 'stockOverview'])
 }
 function resetProduct() { productForm.value = blankProduct() }
 function editProduct(product) { productForm.value = { ...product, category: product.category ?? '', expiration_date: product.expiration_date ?? '' }; tab.value = 'products'; window.scrollTo({ top: 0, behavior: 'smooth' }) }
 async function saveProduct() {
   if (busy.value) return
   busy.value = true
+  const payload = { ...productForm.value, category: productForm.value.category || null, sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
   try {
-    const payload = { ...productForm.value, category: productForm.value.category || null, sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
-    if (payload.id) await api.put(`products/${payload.id}/`, payload)
-    else await api.post('products/', payload)
+    const response = payload.id
+      ? await api.put(`products/${payload.id}/`, payload)
+      : await api.post('products/', payload)
+    resourceLoader.invalidate('products')
+    products.value = upsertById(products.value, response.data)
+    resetProduct()
     alertUser(payload.id ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
-    resetProduct(); await loadAll()
+    refreshCatalogInBackground()
   } catch (error) { alertUser(errorText(error), 'error') }
   finally { busy.value = false }
 }
 async function toggleProduct(product) {
   if (busy.value) return
   busy.value = true
-  try { await api.patch(`products/${product.id}/`, { active: !product.active }); await loadAll(); alertUser('Situação do produto atualizada.') }
-  catch (error) { alertUser(errorText(error), 'error') }
+  try {
+    const response = await api.patch(`products/${product.id}/`, { active: !product.active })
+    resourceLoader.invalidate('products')
+    products.value = upsertById(products.value, response.data)
+    alertUser('Situação do produto atualizada.')
+    refreshCatalogInBackground()
+  } catch (error) { alertUser(errorText(error), 'error') }
   finally { busy.value = false }
 }
 async function deleteProduct(product) {
-  if (!confirm(`Excluir "${product.name}"? Produtos com histórico devem ser desativados.`)) return
-  try { await api.delete(`products/${product.id}/`); await loadAll(); alertUser('Produto excluído.') }
-  catch (error) { alertUser(errorText(error), 'error') }
+  if (busy.value || !confirm(`Excluir "${product.name}"? Produtos com histórico devem ser desativados.`)) return
+  busy.value = true
+  try {
+    await api.delete(`products/${product.id}/`)
+    resourceLoader.invalidate('products')
+    products.value = removeById(products.value, product.id)
+    if (productForm.value.id === product.id) resetProduct()
+    alertUser('Produto excluído.')
+    refreshCatalogInBackground()
+  } catch (error) { alertUser(errorText(error), 'error') }
+  finally { busy.value = false }
 }
 async function addCategory() {
-  if (!categoryName.value.trim()) return
-  try { await api.post('categories/', { name: categoryName.value.trim() }); categoryName.value = ''; await loadAll(); alertUser('Categoria criada.') }
-  catch (error) { alertUser(errorText(error), 'error') }
+  if (busy.value || !categoryName.value.trim()) return
+  busy.value = true
+  try {
+    const response = await api.post('categories/', { name: categoryName.value.trim() })
+    resourceLoader.invalidate('categories')
+    categories.value = upsertById(categories.value, response.data)
+    categoryName.value = ''
+    alertUser('Categoria criada com sucesso.')
+    void refreshResources(['categories'])
+  } catch (error) { alertUser(errorText(error), 'error') }
+  finally { busy.value = false }
 }
 function addItem() {
   if (!saleDraft.value.product || !Number.isInteger(Number(saleDraft.value.quantity)) || Number(saleDraft.value.quantity) < 1) return
@@ -266,7 +320,7 @@ function chooseSaleItem(p) { window.clearTimeout(saleSearchBlurTimer); saleDraft
 function showSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchOpen.value = true }
 function onSaleInput() { saleDraft.value.product = ''; saleSearchOpen.value = true }
 function hideSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchBlurTimer = window.setTimeout(() => { saleSearchOpen.value = false }, 120) }
-async function refreshDashboardCharts() {
+async function refreshDashboardCharts({ silent = false } = {}) {
   const requestId = ++dashboardChartRequest
   chartLoading.value = true
   chartError.value = false
@@ -274,17 +328,26 @@ async function refreshDashboardCharts() {
     const dates = periodDates(chartPeriod.value, localDateISO())
     const result = await api.get(`reports/finance/?${queryReport(dates)}`)
     if (requestId === dashboardChartRequest) dashboardReport.value = result.data
-  } catch (error) { if (requestId === dashboardChartRequest) { chartError.value = true; alertUser(errorText(error), 'error') } }
-  finally { if (requestId === dashboardChartRequest) chartLoading.value = false }
+  } catch (error) {
+    if (requestId === dashboardChartRequest) {
+      chartError.value = true
+      if (!silent) alertUser(errorText(error), 'error')
+      else console.warn('Gráfico não atualizado:', error)
+    }
+  } finally { if (requestId === dashboardChartRequest) chartLoading.value = false }
 }
 async function registerSale() {
   if (!cartValid.value || busy.value) return
   busy.value = true
   try {
-    await api.post('sales/', { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) })
+    const response = await api.post('sales/', { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) })
+    resourceLoader.invalidate('sales')
+    sales.value = upsertById(sales.value, response.data)
     saleForm.value = { items: [], discount: 0 }
     saleDraft.value = { product: '', quantity: 1, query: '' }
-    await Promise.all([loadAll(), refreshDashboardCharts()]); alertUser('Venda registrada! Estoque atualizado automaticamente.')
+    alertUser('Venda registrada! Estoque atualizado no servidor.')
+    void refreshResources(['sales', 'products', 'movements', 'dashboard', 'stockOverview'])
+    void refreshDashboardCharts({ silent: true })
   } catch (error) { alertUser(errorText(error), 'error') }
   finally { busy.value = false }
 }
@@ -292,8 +355,12 @@ async function adjustStock() {
   if (busy.value || !movementFormValid.value) return
   busy.value = true
   try {
-    await api.post('stock-movements/', { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) })
-    stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''; await loadAll(); alertUser('Movimentação registrada.')
+    const response = await api.post('stock-movements/', { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) })
+    resourceLoader.invalidate('movements')
+    movements.value = upsertById(movements.value, response.data)
+    stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''
+    alertUser('Movimentação registrada com sucesso.')
+    void refreshResources(['movements', 'products', 'dashboard', 'stockOverview'])
   } catch (error) { alertUser(errorText(error), 'error') }
   finally { busy.value = false }
 }
@@ -398,8 +465,8 @@ function labelStatus(p) {
     </section>
 
     <section v-if="tab === 'products'"><header class="page-header"><div><span class="eyebrow">CATÁLOGO / CADASTROS</span><h1>Produtos<span class="title-accent">.</span></h1><p>Cadastre e organize os itens de sua loja.</p></div><span class="header-count">{{ products.length }} itens cadastrados</span></header>
-      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<input v-model.number="productForm.purchase_price" type="number" step="0.01" min="0" required /></label><label>Preço de venda<input v-model.number="productForm.sale_price" type="number" step="0.01" min="0" required /></label></div><div class="form-row"><label>Saldo inicial / atual<input v-model.number="productForm.stock" type="number" step="1" min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<input v-model.number="productForm.minimum_stock" type="number" step="1" min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary"><AppIcon name="add" :size="16" />Adicionar categoria</button></form></div>
-      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><div class="product-avatar"><AppIcon name="package" /></div><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
+      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<input v-model.number="productForm.purchase_price" type="number" step="0.01" min="0" required /></label><label>Preço de venda<input v-model.number="productForm.sale_price" type="number" step="0.01" min="0" required /></label></div><div class="form-row"><label>Saldo inicial / atual<input v-model.number="productForm.stock" type="number" step="1" min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<input v-model.number="productForm.minimum_stock" type="number" step="1" min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
+      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><div class="product-avatar"><AppIcon name="package" /></div><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
     </section>
 
     <section v-if="tab === 'sales'">
