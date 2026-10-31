@@ -1,5 +1,7 @@
 from decimal import Decimal
 from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
+from django.conf import settings
 
 
 class Category(models.Model):
@@ -42,7 +44,7 @@ class Product(models.Model):
 
 
 class Sale(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     @property
@@ -126,3 +128,18 @@ class StockLotAllocation(models.Model):
     movement = models.ForeignKey(StockMovement, on_delete=models.PROTECT, related_name="lot_allocations")
     lot = models.ForeignKey(StockLot, on_delete=models.PROTECT, related_name="allocations")
     quantity = models.PositiveIntegerField()
+
+
+class IdempotencyRecord(models.Model):
+    """Confirmações persistidas de POST; evitam operações duplicadas após timeout."""
+    key = models.CharField(max_length=100, primary_key=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    path = models.CharField(max_length=240)
+    request_hash = models.CharField(max_length=64)
+    response_status = models.PositiveSmallIntegerField()
+    response_body = models.JSONField(default=dict, encoder=DjangoJSONEncoder)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'Operação idempotente'
+        verbose_name_plural = 'Operações idempotentes'

@@ -3,7 +3,7 @@
 Receita líquida aqui significa *venda menos descontos*; não é lucro líquido.
 """
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
@@ -49,7 +49,10 @@ def finance_report(filters):
     """Alocação proporcional exata na base de dados, arredondamento apenas na saída."""
     start, end = filters['start'], filters['end']
     # Comparar data local; fim inclusivo. Evita erro em horários de última venda.
-    sales = (Sale.objects.filter(created_at__date__gte=start, created_at__date__lte=end)
+    # Intervalo sem cast de DATE na coluna: aproveita o índice de created_at.
+    begin = timezone.make_aware(datetime.combine(start, time.min))
+    finish = timezone.make_aware(datetime.combine(end + timedelta(days=1), time.min))
+    sales = (Sale.objects.filter(created_at__gte=begin, created_at__lt=finish)
              .prefetch_related('items__product__category').order_by('created_at', 'pk'))
     gross = Decimal('0')
     allocated_discount = Decimal('0')

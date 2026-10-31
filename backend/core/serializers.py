@@ -44,17 +44,25 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["created_at"]
 
+    @staticmethod
+    def _snapshot(obj):
+        # Uma mesma ficha é serializada com quatro indicadores de lote.
+        # Calcular uma só vez evita repetir a varredura (e consultas ao banco).
+        if not hasattr(obj, '_comercializa_snapshot'):
+            obj._comercializa_snapshot = stock_snapshot(obj)
+        return obj._comercializa_snapshot
+
     def get_available_stock(self, obj):
-        return stock_snapshot(obj)['available_stock']
+        return self._snapshot(obj)['available_stock']
 
     def get_expired_units(self, obj):
-        return stock_snapshot(obj)['expired_units']
+        return self._snapshot(obj)['expired_units']
 
     def get_expiring_units(self, obj):
-        return stock_snapshot(obj)['expiring_units']
+        return self._snapshot(obj)['expiring_units']
 
     def get_nearest_expiration(self, obj):
-        return stock_snapshot(obj)['nearest_expiration']
+        return self._snapshot(obj)['nearest_expiration']
 
     def validate_name(self, value):
         value = value.strip()

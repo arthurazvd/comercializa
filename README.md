@@ -8,7 +8,26 @@ O repositório foi separado em:
 - `frontend/`: interface em Vue 3 + Vite.
 - `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
 
-## Destaques da versão atual — Iteração 04 (30/10/2026)
+## Atualização 05 — conectividade, gráficos e celular (31/10/2026)
+
+- **Logo horizontal** na conexão e no login, mantendo os SVGs oficiais.
+- **POST idempotente** para produtos, categorias, vendas e ajustes de estoque. Se o navegador perder a resposta, a mesma operação pode ser reconsultada/repetida com a chave sem cadastrar ou baixar novamente. O banco guarda a resposta de cada POST com chave.
+- **Render Free**: leitura de rede com nova tentativa somente nos GETs, tempo de espera mais tolerante ao início do servidor e mensagem durante a ativação. Não há como eliminar o modo de suspensão gratuita por código.
+- **Carregamento seletivo**: histórico, estoque consolidado e outros recursos são buscados ao abrir a tela correspondente. Consultas antigas não substituem cadastros novos.
+- **Gráficos**: atualização ao usar a tela, após vendas e em intervalos de 45 segundos enquanto a aba está visível, atualização manual, cache de 30 segundos, cancelamento de consultas ultrapassadas e manutenção dos dados anteriores se houver erro.
+- **Desempenho Django**: cálculo dos lotes uma vez por produto serializado, menos leituras repetidas no dashboard, relatório financeiro com filtro de data indexado, Gunicorn com duas threads.
+- **Celular**: barra inferior fixa de 5 abas, botões e formulários adequados ao toque, gráficos com rolagem horizontal, modais adaptados e respeito à área segura do aparelho.
+
+### Ordem correta para implantar
+
+1. **Faça backup do PostgreSQL Neon antes de migrar.** Não substitua, apague ou execute `seed_demo` no banco real.
+2. Publique **primeiro o backend no Render** a partir deste código. O `backend/build.sh` executará automaticamente `python manage.py migrate --noinput`, criando `core_idempotencyrecord` e o índice de data das vendas. Verifique o status de deploy e `/api/health/`.
+3. Publique **depois o frontend no Cloudflare Pages** (build `npm ci && npm run build`, diretório `frontend/dist` e variável `VITE_API_URL=https://SEU-SERVICO.onrender.com/api/`). Mantenha `CORS_ALLOWED_ORIGINS` do Render apontando para o domínio real do frontend.
+4. Abra uma sessão e teste um cadastro, uma venda e uma movimentação; valide os gráficos e a navegação no celular.
+
+**Atenção:** hospedar apenas os arquivos novos do frontend, sem migrar e atualizar a API, não ativa a proteção contra duplicidade. O Render Free dorme após 15 minutos sem tráfego e pode demorar cerca de um minuto para iniciar. Uma instância paga elimina a suspensão por inatividade; otimizações de frontend não mudam essa limitação da hospedagem.
+
+## Destaques da versão anterior — Iteração 04 (30/10/2026)
 
 - Identidade visual com variações oficiais SVG: logo vertical compacta no desktop, horizontal no celular, favicon só com símbolo e rodapé com créditos e ano automático.
 - Avisos de sucesso e erro em **toast flutuante de 2 segundos**, sem mensagens permanentes ocupando a tela.
@@ -32,7 +51,7 @@ Para detalhes dos novos lotes, gráficos e validação: [Iteração 04](docs/20-
 
 O projeto agora inclui implantação pública com **login por token, banco PostgreSQL no Neon, Django no Render Free e frontend no Cloudflare Pages**. O modo local segue funcionando com SQLite e sem login (somente para desenvolvimento). O deploy de produção **exige** `DEBUG=False`, banco PostgreSQL e chave secreta.
 
-📋 **Siga o passo a passo em [DEPLOY_GRATIS.md](DEPLOY_GRATIS.md)**. Os arquivos `render.yaml` e `backend/build.sh` já contêm a configuração de publicação, e o primeiro usuário administrativo é criado automaticamente no primeiro build a partir de variáveis de ambiente do Render (o plano gratuito não oferece terminal remoto).
+📋 **Siga a ordem de implantação da Atualização 05 acima.** Os arquivos `render.yaml` e `backend/build.sh` já contêm a configuração de publicação, e o primeiro usuário administrativo é criado automaticamente no primeiro build a partir de variáveis de ambiente do Render (o plano gratuito não oferece terminal remoto).
 
 **Importante:** o PostgreSQL remoto inicia vazio; o banco `backend/db.sqlite3` da instalação local não é migrado automaticamente. Não publique o banco local nem o arquivo `.env` no GitHub. O plano gratuito serve para **protótipo/testes**, sem garantia de disponibilidade ou backups gerenciados.
 
@@ -127,7 +146,7 @@ npm test
 npm run build
 ```
 
-**Migração obrigatória nesta atualização:** `python manage.py migrate` cria `StockLot`, `StockLotAllocation` e o campo `Product.perishable` (a tabela `StockMovement` já existia na versão anterior). Faça cópia do banco antes de migrar.
+**Migração obrigatória:** `python manage.py migrate` aplica as migrações existentes de estoque e agora também cria as confirmações idempotentes e o índice de data das vendas. Faça cópia do banco antes de migrar.
 Para controle de lotes, toast e gráficos, consulte [Iteração 04](docs/20-iteracao-04-experiencia-lotes-graficos-2026-10-30.md). Para a identidade responsiva, consulte [Iteração 03](docs/19-identidade-responsiva-footer-2026-10-30.md). Para o inventário de mudanças, testes e pendências, consulte [Iteração 02](docs/18-identidade-estoque-relatorios-2026-10-29.md) e [Melhorias anteriores](docs/17-melhorias-2026-10-29.md).
 Consulte também `docs/07-plano-de-testes.md`.
 

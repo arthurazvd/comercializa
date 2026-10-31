@@ -68,14 +68,15 @@ def dashboard_data():
     )
 
     active_products = list(Product.objects.filter(active=True).prefetch_related('lots'))
-    low_stock = [p for p in active_products if stock_snapshot(p, today)['available_stock'] <= p.minimum_stock]
-    low_stock.sort(key=lambda p: stock_snapshot(p, today)['available_stock'])
+    snapshots = {p.pk: stock_snapshot(p, today) for p in active_products}
+    low_stock = [p for p in active_products if snapshots[p.pk]['available_stock'] <= p.minimum_stock]
+    low_stock.sort(key=lambda p: snapshots[p.pk]['available_stock'])
 
-    all_active = list(Product.objects.filter(active=True, stock__gt=0).prefetch_related('lots'))
-    expired = [p for p in all_active if stock_snapshot(p, today)['expired_units'] > 0]
-    expiring = [p for p in all_active if stock_snapshot(p, today)['expiring_units'] > 0]
-    expired.sort(key=lambda p: stock_snapshot(p, today)['nearest_expiration'] or today)
-    expiring.sort(key=lambda p: stock_snapshot(p, today)['nearest_expiration'] or today)
+    all_active = [p for p in active_products if p.stock > 0]
+    expired = [p for p in all_active if snapshots[p.pk]['expired_units'] > 0]
+    expiring = [p for p in all_active if snapshots[p.pk]['expiring_units'] > 0]
+    expired.sort(key=lambda p: snapshots[p.pk]['nearest_expiration'] or today)
+    expiring.sort(key=lambda p: snapshots[p.pk]['nearest_expiration'] or today)
 
     sold_ids = set(items_30.values_list("product_id", flat=True).distinct())
 
@@ -129,21 +130,21 @@ def dashboard_data():
         )
 
         days_cover = (
-            stock_snapshot(product, today)["available_stock"] / velocity
+            snapshots[product.pk]["available_stock"] / velocity
             if velocity > 0
             else None
         )
 
-        if stock_snapshot(product, today)["available_stock"] <= product.minimum_stock:
+        if snapshots[product.pk]["available_stock"] <= product.minimum_stock:
             suggested_qty = calculate_restock_quantity(
-                stock_snapshot(product, today)["available_stock"],
+                snapshots[product.pk]["available_stock"],
                 product.minimum_stock,
                 velocity,
             )
 
             priority = (
                 "alta"
-                if stock_snapshot(product, today)["available_stock"] == 0
+                if snapshots[product.pk]["available_stock"] == 0
                 or (
                     days_cover is not None
                     and days_cover <= 3
@@ -168,7 +169,7 @@ def dashboard_data():
                 }
             )
 
-        product_snapshot = stock_snapshot(product, today)
+        product_snapshot = snapshots[product.pk]
         if product_snapshot["expired_units"] > 0:
             recommendations.append({
                 "type": "vencido", "priority": "alta",
@@ -233,6 +234,7 @@ def dashboard_data():
                 }
             )
 
+    sales_count = sales_30.count()
     priority_order = {
         "alta": 0,
         "média": 1,
@@ -249,11 +251,9 @@ def dashboard_data():
             "revenue": revenue,
             "gross_revenue": gross_revenue,
             "discounts": discounts,
-            "average_ticket": revenue / sales_30.count() if sales_30.count() else Decimal("0"),
-            "sales_count": sales_30.count(),
-            "products_count": Product.objects.filter(
-                active=True
-            ).count(),
+            "average_ticket": revenue / sales_count if sales_count else Decimal("0"),
+            "sales_count": sales_count,
+            "products_count": len(active_products),
             "low_stock_count": len(low_stock),
             "expiring_count": len(expiring),
             "expired_count": len(expired),
@@ -261,7 +261,7 @@ def dashboard_data():
         "top_products": top_products,
         "daily_revenue": daily_revenue,
         "expired": [
-            {"id": p.id, "name": p.name, "stock": p.stock, "expiration_date": stock_snapshot(p, today)["nearest_expiration"]}
+            {"id": p.id, "name": p.name, "stock": p.stock, "expiration_date": snapshots[p.pk]["nearest_expiration"]}
             for p in expired[:10]
         ],
         "low_stock": [
@@ -269,7 +269,7 @@ def dashboard_data():
                 "id": product.id,
                 "name": product.name,
                 "stock": product.stock,
-                "available_stock": stock_snapshot(product, today)["available_stock"],
+                "available_stock": snapshots[product.pk]["available_stock"],
                 "minimum_stock": product.minimum_stock,
             }
             for product in low_stock[:10]
@@ -279,7 +279,7 @@ def dashboard_data():
                 "id": product.id,
                 "name": product.name,
                 "stock": product.stock,
-                "expiration_date": stock_snapshot(product, today)["nearest_expiration"],
+                "expiration_date": snapshots[product.pk]["nearest_expiration"],
             }
             for product in expiring[:10]
         ],

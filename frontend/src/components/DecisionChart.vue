@@ -9,7 +9,7 @@ const props = defineProps({
 })
 const palette = ['#15ae88', '#4c86d7', '#e5a442', '#8664d7', '#ed6f72', '#16a7b9', '#bd71b3', '#94a8b9']
 const display = computed(() => props.rows.filter(p => Number(p.value) > 0 || props.type !== 'donut'))
-const width = computed(() => Math.max(640, display.value.length * 42))
+const width = computed(() => Math.max(480, display.value.length * 42))
 const height = 260
 const top = 16
 const bottom = 45
@@ -43,7 +43,7 @@ const formatLabel = label => /^\d{4}-\d{2}-\d{2}$/.test(label) ? `${label.slice(
     </svg>
     <div class="chart-legend"><div v-for="(segment, i) in segments" :key="i" class="legend-entry"><span class="legend-color" :style="{ background: segment.color }"></span><span class="legend-label" :title="segment.label">{{ formatLabel(segment.label) }}</span><strong>{{ (segment.value / sum * 100).toFixed(1).replace('.', ',') }}%</strong></div></div>
   </div>
-  <div v-else class="decision-chart-scroll" role="img" :aria-label="label">
+  <div v-else class="decision-chart-scroll" role="group" :aria-label="label">
     <svg :viewBox="`0 0 ${width} ${height}`" :style="{ minWidth: `${width}px` }" class="decision-svg" aria-hidden="true">
       <line x1="40" :x2="width - 15" :y1="height - bottom" :y2="height - bottom" stroke="var(--stroke)" />
       <line v-for="n in 3" :key="n" x1="40" :x2="width - 15" :y1="py(n * max / 4)" :y2="py(n * max / 4)" stroke="var(--stroke)" stroke-dasharray="3 5" />
@@ -56,5 +56,11 @@ const formatLabel = label => /^\d{4}-\d{2}-\d{2}$/.test(label) ? `${label.slice(
       </g>
     </svg>
     <p class="chart-footnote">Passe o cursor sobre os pontos para consultar os valores. No celular, deslize para ver o gráfico completo.</p>
+    <details class="chart-data-mobile">
+      <summary>Ver os valores deste gráfico</summary>
+      <div class="chart-data-list">
+        <div v-for="(point, i) in display" :key="i"><span>{{ formatLabel(point.label) }}</span><strong>{{ renderAmount(point.value) }}</strong></div>
+      </div>
+    </details>
   </div>
 </template>

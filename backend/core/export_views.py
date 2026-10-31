@@ -11,8 +11,8 @@ from .reports import filters_from_query, finance_report
 from .xlsx_export import make_xlsx
 
 
-def stock_status(p, today):
-    snapshot = stock_snapshot(p, today)
+def stock_status(p, today, snapshot=None):
+    snapshot = snapshot if snapshot is not None else stock_snapshot(p, today)
     if not p.active:
         return 'inativo'
     if snapshot['expired_units']:
@@ -29,8 +29,8 @@ def stock_data():
     products = list(Product.objects.select_related('category').prefetch_related('lots').order_by('name', 'pk'))
     items = []
     for p in products:
-        status = stock_status(p, today)
         snap = stock_snapshot(p, today)
+        status = stock_status(p, today, snap)
         items.append({'id': p.pk, 'name': p.name, 'sku': p.sku,
                       'category': p.category.name if p.category_id else 'Sem categoria',
                       'stock': p.stock, 'minimum_stock': p.minimum_stock,

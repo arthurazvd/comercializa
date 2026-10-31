@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { api, getAuthToken, saveAuthToken, clearAuthToken } from './api'
+import { api, postWithRecovery, writeErrorText, getAuthToken, saveAuthToken, clearAuthToken } from './api'
 import { createLatestLoader, upsertById, removeById } from './dataSync'
 import AppIcon from './components/AppIcon.vue'
 import DecisionChart from './components/DecisionChart.vue'
@@ -68,7 +68,13 @@ const chartMetric = ref('revenue')
 const dashboardReport = ref(null)
 const chartLoading = ref(false)
 const chartError = ref(false)
+const chartUpdatedAt = ref('')
+const serverWaking = ref(false)
+let serverWakingTimer
 let dashboardChartRequest = 0
+let chartAbortController = null
+const chartCache = new Map()
+let activeRefreshInterval
 const today = localDateISO()
 const money = formatMoney
 const saleChoices = computed(() => sortedSaleOptions(products.value, saleDraft.value.query))
@@ -111,13 +117,32 @@ const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produto
 watch(theme, value => { document.documentElement.dataset.theme = value; saveTheme(value) }, { immediate: true })
 watch(modal, value => { document.body.style.overflow = value ? 'hidden' : '' })
 watch(() => reportFilters.value.category, () => { reportFilters.value.product = '' })
-watch(chartPeriod, period => { if (period === '90d') chartGrouping.value = 'week'; else if (period === '12m') chartGrouping.value = 'month'; else chartGrouping.value = 'day'; refreshDashboardCharts() })
+watch(chartPeriod, period => {
+  if (period === '90d') chartGrouping.value = 'week'
+  else if (period === '12m') chartGrouping.value = 'month'
+  else chartGrouping.value = 'day'
+  void refreshDashboardCharts()
+})
+watch(tab, selected => {
+  if (!authenticated.value) return
+  const onDemand = { dashboard: ['dashboard'], sales: ['sales'], products: ['products', 'categories'], inventory: ['stockOverview', 'products'], movements: ['movements', 'products'] }
+  void refreshResources(onDemand[selected] || [])
+  if (selected === 'dashboard') void refreshDashboardCharts({ silent: true })
+})
 watch(stockProduct, () => { stockExpiry.value = '' })
 watch(stockDelta, value => { if (Number(value) <= 0) { stockExpiry.value = ''; if (stockReason.value === 'recebimento' || stockReason.value === 'devolucao') stockReason.value = 'avaria' } else if (stockReason.value === 'avaria' || stockReason.value === 'perda') stockReason.value = 'recebimento' })
 function onKeydown(event) { if (event.key === 'Escape') closeModal() }
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   yearRefreshInterval = window.setInterval(() => { copyrightYear.value = getCopyrightYear() }, 60_000)
+  activeRefreshInterval = window.setInterval(() => {
+    if (authenticated.value && tab.value === 'dashboard' && document.visibilityState === 'visible') {
+      void refreshResources(['dashboard'])
+      void refreshDashboardCharts({ silent: true })
+    }
+  }, 45000)
+  window.addEventListener('online', onAppResume)
+  document.addEventListener('visibilitychange', onAppResume)
   window.addEventListener('comercializa:unauthorized', onUnauthorized)
   initializeSession()
 })
@@ -125,6 +150,11 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('comercializa:unauthorized', onUnauthorized)
   window.clearInterval(yearRefreshInterval)
+  window.clearInterval(activeRefreshInterval)
+  window.clearTimeout(serverWakingTimer)
+  chartAbortController?.abort()
+  window.removeEventListener('online', onAppResume)
+  document.removeEventListener('visibilitychange', onAppResume)
   toastController.dispose()
   window.clearTimeout(saleSearchBlurTimer)
   document.body.style.overflow = ''
@@ -134,6 +164,12 @@ function onUnauthorized() {
   // Uma requisição iniciada antes do logout não pode restaurar dados da sessão.
   for (const name of Object.keys(resourceEndpoints)) resourceLoader.invalidate(name)
   ++dashboardChartRequest
+  chartAbortController?.abort()
+  chartCache.clear()
+  loadedAt.clear()
+  dashboardReport.value = null
+  stockOverview.value = null
+  finance.value = null
   authenticated.value = false
   authUsername.value = ''
   dashboard.value = null
@@ -143,8 +179,18 @@ function onUnauthorized() {
   movements.value = []
   loginError.value = 'Sua sessão expirou ou foi encerrada. Entre novamente.'
 }
+function onAppResume() {
+  if (!authenticated.value || document.visibilityState !== 'visible') return
+  void refreshResources(tab.value === 'dashboard' ? ['dashboard'] : [({
+    inventory: 'stockOverview', sales: 'sales', movements: 'movements', products: 'products',
+  })[tab.value] || 'dashboard'])
+  if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true })
+}
 async function initializeSession() {
   authChecking.value = true
+  serverWaking.value = false
+  window.clearTimeout(serverWakingTimer)
+  serverWakingTimer = window.setTimeout(() => { serverWaking.value = true }, 5500)
   authStartupError.value = ''
   try {
     const { data } = await api.get('auth/status/')
@@ -152,8 +198,8 @@ async function initializeSession() {
     authenticated.value = !authRequired.value || Boolean(data.authenticated)
     authUsername.value = data.username || ''
     if (authenticated.value) {
-      await loadAll()
-      refreshDashboardCharts()
+      void loadAll()
+      void refreshDashboardCharts({ silent: true })
     } else if (getAuthToken()) {
       clearAuthToken()
     }
@@ -166,7 +212,7 @@ async function initializeSession() {
     } else {
       authStartupError.value = 'Não foi possível conectar ao servidor. Confira o endereço da API e tente novamente.'
     }
-  } finally { authChecking.value = false }
+  } finally { authChecking.value = false; serverWaking.value = false; window.clearTimeout(serverWakingTimer) }
 }
 async function signIn() {
   if (loginBusy.value) return
@@ -186,8 +232,8 @@ async function signIn() {
     authenticated.value = true
     loginForm.value.password = ''
     authStartupError.value = ''
-    await loadAll()
-    refreshDashboardCharts()
+    void loadAll()
+    void refreshDashboardCharts({ silent: true })
   } catch (error) {
     clearAuthToken()
     authenticated.value = false
@@ -221,12 +267,19 @@ const resourceEndpoints = {
   movements: ['stock-movements/', movements],
   stockOverview: ['stock-overview/', stockOverview],
 }
+const loadedAt = new Map()
 const resourceLoader = createLatestLoader(
   async name => (await api.get(resourceEndpoints[name][0])).data,
-  (name, data) => { resourceEndpoints[name][1].value = data },
+  (name, data) => {
+    resourceEndpoints[name][1].value = data
+    loadedAt.set(name, Date.now())
+  },
 )
-async function refreshResources(names, { showError = false } = {}) {
-  const results = await Promise.allSettled(names.map(name => resourceLoader.load(name)))
+async function refreshResources(names, { showError = false, force = false } = {}) {
+  const required = [...new Set(names)].filter(name => resourceEndpoints[name] &&
+    (force || !loadedAt.has(name) || Date.now() - loadedAt.get(name) > 25000))
+  if (!required.length) return true
+  const results = await Promise.allSettled(required.map(name => resourceLoader.load(name)))
   const failed = results.filter(result => result.status === 'rejected')
   if (failed.length) {
     console.warn('Consultas não atualizadas:', failed.map(result => result.reason))
@@ -239,13 +292,25 @@ async function refreshResources(names, { showError = false } = {}) {
 }
 async function loadAll() {
   loading.value = true
-  try { await refreshResources(Object.keys(resourceEndpoints), { showError: true }) }
+  // Carrega só o necessário para a primeira tela; histórico e estoque sob demanda.
+  try { await refreshResources(['products', 'categories', 'dashboard'], { showError: true }) }
   finally { loading.value = false }
 }
+function invalidateResource(...names) {
+  for (const name of names) {
+    resourceLoader.invalidate(name)
+    loadedAt.delete(name)
+  }
+}
 function refreshCatalogInBackground() {
-  // As listas principais já receberam a resposta do POST/PUT/PATCH/DELETE.
-  // As consultas abaixo servem só para conciliar os demais painéis.
-  void refreshResources(['products', 'dashboard', 'stockOverview'])
+  invalidateResource('products', 'dashboard', 'stockOverview')
+  const names = tab.value === 'inventory' ? ['products', 'dashboard', 'stockOverview'] : ['products', 'dashboard']
+  void refreshResources(names, { force: true })
+}
+function refreshVisibleData() {
+  const names = { dashboard: ['products', 'dashboard'], products: ['products', 'categories'], sales: ['sales', 'products'], inventory: ['products', 'stockOverview'], movements: ['movements', 'products'] }
+  void refreshResources(names[tab.value] || ['dashboard'], { force: true, showError: true })
+  if (tab.value === 'dashboard') void refreshDashboardCharts({ force: true })
 }
 function resetProduct() { productForm.value = blankProduct() }
 function editProduct(product) { productForm.value = { ...product, category: product.category ?? '', expiration_date: product.expiration_date ?? '' }; tab.value = 'products'; window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -256,13 +321,13 @@ async function saveProduct() {
   try {
     const response = payload.id
       ? await api.put(`products/${payload.id}/`, payload)
-      : await api.post('products/', payload)
-    resourceLoader.invalidate('products')
+      : await postWithRecovery('products/', payload)
+    invalidateResource('products')
     products.value = upsertById(products.value, response.data)
     resetProduct()
     alertUser(payload.id ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
     refreshCatalogInBackground()
-  } catch (error) { alertUser(errorText(error), 'error') }
+  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
 }
 async function toggleProduct(product) {
@@ -270,7 +335,7 @@ async function toggleProduct(product) {
   busy.value = true
   try {
     const response = await api.patch(`products/${product.id}/`, { active: !product.active })
-    resourceLoader.invalidate('products')
+    invalidateResource('products')
     products.value = upsertById(products.value, response.data)
     alertUser('Situação do produto atualizada.')
     refreshCatalogInBackground()
@@ -282,7 +347,7 @@ async function deleteProduct(product) {
   busy.value = true
   try {
     await api.delete(`products/${product.id}/`)
-    resourceLoader.invalidate('products')
+    invalidateResource('products')
     products.value = removeById(products.value, product.id)
     if (productForm.value.id === product.id) resetProduct()
     alertUser('Produto excluído.')
@@ -294,13 +359,13 @@ async function addCategory() {
   if (busy.value || !categoryName.value.trim()) return
   busy.value = true
   try {
-    const response = await api.post('categories/', { name: categoryName.value.trim() })
-    resourceLoader.invalidate('categories')
+    const response = await postWithRecovery('categories/', { name: categoryName.value.trim() })
+    invalidateResource('categories')
     categories.value = upsertById(categories.value, response.data)
     categoryName.value = ''
     alertUser('Categoria criada com sucesso.')
-    void refreshResources(['categories'])
-  } catch (error) { alertUser(errorText(error), 'error') }
+    void refreshResources(['categories'], { force: true })
+  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
 }
 function addItem() {
@@ -320,48 +385,74 @@ function chooseSaleItem(p) { window.clearTimeout(saleSearchBlurTimer); saleDraft
 function showSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchOpen.value = true }
 function onSaleInput() { saleDraft.value.product = ''; saleSearchOpen.value = true }
 function hideSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchBlurTimer = window.setTimeout(() => { saleSearchOpen.value = false }, 120) }
-async function refreshDashboardCharts({ silent = false } = {}) {
+async function refreshDashboardCharts({ silent = false, force = false } = {}) {
+  const cacheKey = `${chartPeriod.value}|${localDateISO()}`
+  const cached = chartCache.get(cacheKey)
+  if (!force && cached && Date.now() - cached.at < 30000) {
+    ++dashboardChartRequest
+    chartAbortController?.abort()
+    chartLoading.value = false
+    chartError.value = false
+    dashboardReport.value = cached.data
+    chartUpdatedAt.value = cached.time
+    return
+  }
   const requestId = ++dashboardChartRequest
+  chartAbortController?.abort()
+  chartAbortController = new AbortController()
   chartLoading.value = true
   chartError.value = false
   try {
     const dates = periodDates(chartPeriod.value, localDateISO())
-    const result = await api.get(`reports/finance/?${queryReport(dates)}`)
-    if (requestId === dashboardChartRequest) dashboardReport.value = result.data
-  } catch (error) {
+    const result = await api.get(`reports/finance/?${queryReport(dates)}`, { signal: chartAbortController.signal })
     if (requestId === dashboardChartRequest) {
+      dashboardReport.value = result.data
+      const now = Date.now()
+      chartUpdatedAt.value = new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+      chartCache.set(cacheKey, { data: result.data, at: now, time: chartUpdatedAt.value })
+    }
+  } catch (error) {
+    if (requestId === dashboardChartRequest && error?.code !== 'ERR_CANCELED') {
       chartError.value = true
       if (!silent) alertUser(errorText(error), 'error')
       else console.warn('Gráfico não atualizado:', error)
     }
   } finally { if (requestId === dashboardChartRequest) chartLoading.value = false }
 }
+function refreshChartsAfterWrite() {
+  chartCache.clear()
+  if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true, force: true })
+}
+
 async function registerSale() {
   if (!cartValid.value || busy.value) return
   busy.value = true
   try {
-    const response = await api.post('sales/', { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) })
-    resourceLoader.invalidate('sales')
+    const response = await postWithRecovery('sales/', { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) })
+    invalidateResource('sales')
     sales.value = upsertById(sales.value, response.data)
     saleForm.value = { items: [], discount: 0 }
     saleDraft.value = { product: '', quantity: 1, query: '' }
     alertUser('Venda registrada! Estoque atualizado no servidor.')
-    void refreshResources(['sales', 'products', 'movements', 'dashboard', 'stockOverview'])
-    void refreshDashboardCharts({ silent: true })
-  } catch (error) { alertUser(errorText(error), 'error') }
+    invalidateResource('products', 'dashboard', 'movements', 'stockOverview')
+    void refreshResources(['products', 'dashboard', ...(tab.value === 'inventory' ? ['stockOverview'] : [])], { force: true })
+    refreshChartsAfterWrite()
+  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
 }
 async function adjustStock() {
   if (busy.value || !movementFormValid.value) return
   busy.value = true
   try {
-    const response = await api.post('stock-movements/', { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) })
-    resourceLoader.invalidate('movements')
+    const response = await postWithRecovery('stock-movements/', { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) })
+    invalidateResource('movements')
     movements.value = upsertById(movements.value, response.data)
     stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''
     alertUser('Movimentação registrada com sucesso.')
-    void refreshResources(['movements', 'products', 'dashboard', 'stockOverview'])
-  } catch (error) { alertUser(errorText(error), 'error') }
+    invalidateResource('products', 'dashboard', 'stockOverview')
+    void refreshResources(['products', 'dashboard', ...(tab.value === 'inventory' ? ['stockOverview'] : [])], { force: true })
+    refreshChartsAfterWrite()
+  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
 }
 function openModal(type) { modal.value = type; if (type === 'finance') refreshFinance() }
@@ -394,10 +485,11 @@ function labelStatus(p) {
 <template>
 <section v-if="authChecking || (authRequired && !authenticated)" class="auth-page">
   <div class="auth-card">
-    <img src="/logo-comercializa-vertical.svg" alt="Comercializa" class="auth-logo" />
+    <img :src="theme === 'dark' ? BRAND_ASSETS.horizontalOnDark : BRAND_ASSETS.horizontalOnLight" alt="Comercializa" class="auth-logo" width="360" height="66" />
     <template v-if="authChecking">
       <h1>Conectando ao Comercializa…</h1>
       <p>Verificando o acesso ao sistema.</p>
+      <p v-if="serverWaking" class="auth-waking" role="status"><AppIcon name="refresh" :size="16" /> O servidor gratuito está iniciando. Seus dados permanecem seguros.</p>
     </template>
     <template v-else>
       <span class="eyebrow">ACESSO SEGURO</span>
@@ -423,16 +515,16 @@ function labelStatus(p) {
     </div>
     <div class="sidebar-label">MENU PRINCIPAL</div>
     <nav aria-label="Navegação principal">
-      <button :class="{ active: tab === 'dashboard' }" @click="tab = 'dashboard'"><AppIcon name="dashboard" /> Visão geral</button>
-      <button :class="{ active: tab === 'sales' }" @click="tab = 'sales'"><AppIcon name="cart" /> Vendas</button>
-      <button :class="{ active: tab === 'products' }" @click="tab = 'products'"><AppIcon name="products" /> Produtos</button>
-      <button :class="{ active: tab === 'inventory' }" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
-      <button :class="{ active: tab === 'movements' }" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
+      <button :class="{ active: tab === 'dashboard' }" :aria-current="tab === 'dashboard' ? 'page' : undefined" @click="tab = 'dashboard'"><AppIcon name="dashboard" /> Visão geral</button>
+      <button :class="{ active: tab === 'sales' }" :aria-current="tab === 'sales' ? 'page' : undefined" @click="tab = 'sales'"><AppIcon name="cart" /> Vendas</button>
+      <button :class="{ active: tab === 'products' }" :aria-current="tab === 'products' ? 'page' : undefined" @click="tab = 'products'"><AppIcon name="products" /> Produtos</button>
+      <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
+      <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
     </nav>
     <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades</small></div>
   </aside>
   <main class="main-content">
-    <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="loadAll"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
+    <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
     <Transition name="toast"><div v-if="toast" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer"></span></div></Transition>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
 
@@ -448,9 +540,10 @@ function labelStatus(p) {
         <div><span class="eyebrow">ANÁLISE GERENCIAL</span><h2>Explore os dados de vendas</h2><p>Altere período, agrupamento e visualização. Receita considera os descontos, mas não representa lucro.</p></div>
         <div class="chart-controls"><label>Período<select v-model="chartPeriod"><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="90d">Últimos 90 dias</option><option value="12m">Últimos 12 meses</option></select></label><label>Indicador<select v-model="chartMetric"><option value="revenue">Receita (R$)</option><option value="quantity">Unidades vendidas</option></select></label><label>Agrupar<select v-model="chartGrouping"><option value="day">Por dia</option><option value="week">Por semana</option><option value="month">Por mês</option></select></label><small v-if="chartLoading" class="chart-refreshing">Atualizando gráficos…</small></div>
       </div>
-      <div v-if="chartError" class="panel"><p>Não foi possível carregar os gráficos. <button class="btn secondary" @click="refreshDashboardCharts">Tentar novamente</button></p></div>
-      <div v-else-if="chartLoading && !dashboardReport" class="panel">Carregando análises…</div>
-      <template v-else-if="dashboardReport">
+      <div v-if="chartError" class="chart-connection-warning" role="status"><AppIcon name="alert" :size="16" /> {{ dashboardReport ? 'Não foi possível atualizar agora. Exibindo os últimos dados recebidos.' : 'Não foi possível carregar os gráficos.' }} <button class="btn secondary" @click="refreshDashboardCharts({ force: true })">Tentar novamente</button></div>
+      <div v-if="dashboardReport" class="chart-update-line"><span><AppIcon name="check" :size="14" /> Atualizado às {{ chartUpdatedAt }} <span v-if="chartLoading"> · Sincronizando…</span></span><button type="button" class="btn secondary chart-reload" :disabled="chartLoading" @click="refreshDashboardCharts({ force: true })"><AppIcon name="refresh" :size="15" /> Atualizar gráficos</button></div>
+      <div v-if="chartLoading && !dashboardReport" class="panel">Carregando análises…</div>
+      <template v-if="dashboardReport">
         <div class="insight-strip"><div><span>Unidades vendidas</span><strong>{{ summaryInsights.units }}</strong></div><div><span>Produtos diferentes vendidos</span><strong>{{ summaryInsights.activeItems }}</strong></div><div><span>Maior categoria no faturamento</span><strong>{{ summaryInsights.concentration }}%</strong><small>{{ summaryInsights.topCategory }}</small></div><div><span>Ticket médio do período</span><strong>{{ money(dashboardReport.summary.average_ticket) }}</strong></div></div>
         <div class="grid-2 dashboard-top">
           <article class="panel chart-panel"><div class="panel-heading"><div><span class="eyebrow">SÉRIE TEMPORAL</span><h2>Evolução das vendas</h2></div><select v-model="chartStyle" aria-label="Tipo de gráfico de evolução"><option value="bar">Barras</option><option value="line">Linhas</option><option value="area">Área</option><option value="donut">Rosca (participação)</option></select></div><DecisionChart :rows="trendRows" :type="chartStyle" :currency="chartMetric === 'revenue'" label="Evolução das vendas no período selecionado" /></article>

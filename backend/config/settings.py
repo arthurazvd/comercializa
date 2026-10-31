@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from django.core.exceptions import ImproperlyConfigured
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -105,6 +106,9 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
     *env_csv('CORS_ALLOWED_ORIGINS'),
 ]
+# Autoriza a chave usada em cadastros idempotentes pelo frontend Cloudflare.
+CORS_ALLOW_HEADERS = (*default_headers, 'idempotency-key')
+
 # A hospedagem do frontend fica em outro domínio (Cloudflare Pages).
 # Não usar CORS_ALLOW_ALL_ORIGINS=True: explicitar o domínio do projeto.
 CSRF_TRUSTED_ORIGINS = env_csv('CSRF_TRUSTED_ORIGINS')

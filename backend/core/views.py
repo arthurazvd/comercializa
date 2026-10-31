@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Category, Product, Sale, StockMovement
+from .idempotency import IdempotentCreateMixin
 from .serializers import (
     CategorySerializer, ProductSerializer, SaleSerializer, SaleCreateSerializer,
     StockMovementSerializer, StockAdjustmentSerializer,
@@ -11,12 +12,12 @@ from .serializers import (
 from .services import dashboard_data
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
 
-class ProductViewSet(viewsets.ModelViewSet):
+class ProductViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     queryset = Product.objects.select_related("category").prefetch_related("lots").all()
     serializer_class = ProductSerializer
 
@@ -30,7 +31,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
 
 
-class SaleListCreateView(generics.ListCreateAPIView):
+class SaleListCreateView(IdempotentCreateMixin, generics.ListCreateAPIView):
     queryset = Sale.objects.prefetch_related("items__product").order_by("-created_at")
 
     def get_serializer_class(self):
@@ -43,7 +44,7 @@ class SaleListCreateView(generics.ListCreateAPIView):
         return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
 
 
-class StockMovementListCreateView(generics.ListCreateAPIView):
+class StockMovementListCreateView(IdempotentCreateMixin, generics.ListCreateAPIView):
     queryset = StockMovement.objects.select_related("product", "sale").prefetch_related("lot_allocations__lot", "received_lots").order_by("-created_at", "-id")
 
     def get_serializer_class(self):
