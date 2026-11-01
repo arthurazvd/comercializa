@@ -34,6 +34,19 @@ const sales = ref([])
 const movements = ref([])
 const stockOverview = ref(null)
 const finance = ref(null)
+const financialEntryBusy = ref(false)
+const blankFinancialEntry = () => ({
+  kind: 'expense', category: 'outros', description: '', amount: '', entry_date: localDateISO(),
+})
+const financialEntry = ref(blankFinancialEntry())
+const sortedFinancialEntries = computed(() => [ ...(finance.value?.expenses || []), ...(finance.value?.investments || []) ].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id))
+const FINANCIAL_CATEGORIES = [
+  ['aluguel', 'Aluguel'], ['pessoal', 'Pessoal'], ['tributos', 'Tributos e taxas'],
+  ['frete', 'Frete'], ['contas', 'Água, energia e internet'],
+  ['marketing', 'Marketing'], ['manutencao', 'Manutenção'],
+  ['equipamentos', 'Equipamentos'], ['outros', 'Outros'],
+]
+
 const modal = ref('')
 const theme = ref(readTheme())
 const copyrightYear = ref(getCopyrightYear())
@@ -790,6 +803,43 @@ async function refreshFinance() {
     notifyReadFailure(error)
   } finally { financeLoading.value = false }
 }
+async function recordFinancialEntry() {
+  if (financialEntryBusy.value) return
+  if (!financialEntry.value.description.trim() || Number(financialEntry.value.amount) <= 0) {
+    alertUser('Informe a descrição e um valor maior que zero.', 'error')
+    return
+  }
+  financialEntryBusy.value = true
+  try {
+    await postWithRecovery('finance/entries/', {
+      ...financialEntry.value, amount: Number(financialEntry.value.amount).toFixed(2),
+    })
+    financialEntry.value = blankFinancialEntry()
+    finance.value = null
+    chartCache.clear()
+    alertUser('Lançamento financeiro registrado.', 'success')
+    void refreshFinance()
+    void refreshDashboardCharts({ force: true, silent: true })
+  } catch (error) {
+    if (error?.response?.status === 400) alertUser('Confira os campos do lançamento financeiro.', 'error')
+    else console.warn('Não foi possível confirmar o lançamento:', error)
+  } finally { financialEntryBusy.value = false }
+}
+async function voidFinancialEntry(entry) {
+  if (financialEntryBusy.value || !window.confirm(`Anular o lançamento “${entry.description}” de ${money(entry.amount)}?`)) return
+  financialEntryBusy.value = true
+  try {
+    await api.post(`finance/entries/${entry.id}/void/`, {})
+    finance.value = null
+    chartCache.clear()
+    alertUser('Lançamento anulado. O histórico foi preservado.', 'success')
+    void refreshFinance()
+    void refreshDashboardCharts({ force: true, silent: true })
+  } catch (error) {
+    console.warn('Falha na anulação de lançamento:', error)
+    alertUser('Não foi possível anular este lançamento.', 'error')
+  } finally { financialEntryBusy.value = false }
+}
 async function exportXlsx(type) {
   try {
     const url = type === 'stock' ? 'stock-export/' : `reports/finance/export/?${queryReport(reportFilters.value)}`
@@ -847,6 +897,7 @@ function labelStatus(p) {
       <button :class="{ active: tab === 'products' }" :aria-current="tab === 'products' ? 'page' : undefined" @click="tab = 'products'"><AppIcon name="products" /> Produtos</button>
       <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
       <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
+      <button type="button" @click="openModal('finance')"><AppIcon name="money" /> Financeiro</button>
     </nav>
     <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Mostrando últimos dados' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades · Versão {{ APP_VERSION }}</small></div>
   </aside>
@@ -873,6 +924,12 @@ function labelStatus(p) {
       <div v-if="chartLoading && !dashboardReport" class="panel">Carregando análises…</div>
       <template v-if="dashboardReport">
         <div class="insight-strip"><div><span>Unidades vendidas</span><strong>{{ summaryInsights.units }}</strong></div><div><span>Produtos diferentes vendidos</span><strong>{{ summaryInsights.activeItems }}</strong></div><div><span>Maior categoria no faturamento</span><strong>{{ summaryInsights.concentration }}%</strong><small>{{ summaryInsights.topCategory }}</small></div><div><span>Ticket médio do período</span><strong>{{ money(dashboardReport.summary.average_ticket) }}</strong></div></div>
+        <div class="finance-quick-strip" v-if="dashboardReport?.summary">
+          <button type="button" @click="openModal('finance')"><small>Lucro bruto · período</small><strong>{{ money(dashboardReport.summary.gross_profit ?? 0) }}</strong><span>Receita menos custo das mercadorias vendidas</span></button>
+          <button type="button" @click="openModal('finance')"><small>Despesas registradas · período</small><strong>{{ money(dashboardReport.summary.expense_total ?? 0) }}</strong><span>Gastos operacionais lançados</span></button>
+          <button type="button" @click="openModal('finance')"><small>Resultado operacional estimado</small><strong>{{ money(dashboardReport.summary.operating_result ?? 0) }}</strong><span>Lucro bruto menos despesas lançadas</span></button>
+          <button type="button" @click="openModal('finance')"><small>Compras recebidas · período</small><strong>{{ money(dashboardReport.summary.purchase_total ?? 0) }}</strong><span>Entradas no estoque, não despesa em dobro</span></button>
+        </div>
         <div class="grid-2 dashboard-top">
           <article class="panel chart-panel"><div class="panel-heading"><div><span class="eyebrow">SÉRIE TEMPORAL</span><h2>Evolução das vendas</h2></div><span class="chart-type-label">Barras</span></div><DecisionChart :rows="trendRows" type="bar" :currency="chartMetric === 'revenue'" label="Evolução das vendas no período selecionado" /></article>
           <article class="panel chart-panel top-products-chart"><div class="panel-heading"><div><span class="eyebrow">RANKING</span><h2>Itens mais vendidos</h2></div><span class="chart-type-label">Top 10 · Rosca</span></div><DecisionChart :rows="rankedRows" type="donut" :currency="false" label="Dez produtos mais vendidos por quantidade" /><div class="top-product-list" aria-label="Ranking dos dez produtos mais vendidos" tabindex="0"><div v-for="(p, i) in rankedProducts" :key="p.id" class="rank-row"><span class="rank-index">{{ String(i + 1).padStart(2, '0') }}</span><strong>{{ p.name }}</strong><span class="quantity">{{ p.quantity }} un.</span></div></div></article>
@@ -969,7 +1026,68 @@ function labelStatus(p) {
   </main>
 
   <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : modal === 'product-photo' ? 'CATÁLOGO / IMAGEM' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
-    <template v-if="modal === 'finance'"><div class="modal-body"><p class="help-text" style="margin-bottom:18px">Receita após descontos (não equivale a lucro líquido). Filtre o intervalo e explore produtos e categorias.</p><form class="report-filters" @submit.prevent="refreshFinance"><label>Início<input v-model="reportFilters.start" type="date" required /></label><label>Fim<input v-model="reportFilters.end" type="date" required /></label><label>Categoria<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar' }}</button></form><div class="report-actions"><button type="button" class="btn secondary" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button><button type="button" class="btn secondary" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button><button class="btn secondary" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel</button></div><div v-if="financeError && !finance" class="report-unavailable" role="status">Relatório indisponível no momento. <button type="button" class="btn secondary" @click="refreshFinance">Tentar novamente</button></div><div v-if="finance" class="report-content"><div class="report-summary"><div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div><div><small>Vendas</small><strong>{{ finance.summary.sales_count }}</strong></div><div><small>Unidades vendidas</small><strong>{{ finance.summary.items_sold }}</strong></div><div><small>Ticket médio</small><strong>{{ money(finance.summary.average_ticket) }}</strong></div></div><div class="report-explanation">Bruto: {{ money(finance.summary.gross) }} · Descontos atribuídos: {{ money(finance.summary.discounts) }}. A análise considera somente os filtros aplicados.</div><div class="report-grid"><div><h3>Desempenho por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades</small></div><b>{{ money(c.revenue) }}</b></div></div><div><h3>Produtos vendidos</h3><div v-if="!finance.products.length" class="empty">Sem itens vendidos.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.category }} · {{ p.quantity }} un.</small></div><b>{{ money(p.revenue) }}</b></div></div></div><h3 style="margin-top:24px">Evolução por dia</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>{{ d.quantity }} unidades</span><strong>{{ money(d.revenue) }}</strong></div></div></div></template>
+    <template v-if="modal === 'finance'">
+      <div class="modal-body financial-modal-body">
+        <p class="help-text">Consulte vendas, lucro bruto, despesas lançadas e investimentos. Os custos das mercadorias são reconhecidos na <strong>venda</strong>; as compras para estoque são mostradas à parte.</p>
+        <form class="report-filters" @submit.prevent="refreshFinance">
+          <label>Início<input v-model="reportFilters.start" type="date" required /></label>
+          <label>Fim<input v-model="reportFilters.end" type="date" required /></label>
+          <label>Categoria de produto<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label>
+          <label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label>
+          <button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar filtros' }}</button>
+        </form>
+        <div class="report-actions">
+          <button class="btn secondary" type="button" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button>
+          <button class="btn secondary" type="button" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button>
+          <button class="btn secondary" type="button" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel completo</button>
+        </div>
+        <div v-if="financeError && !finance" class="report-unavailable" role="status">Relatório indisponível no momento. <button type="button" class="btn secondary" @click="refreshFinance">Tentar novamente</button></div>
+        <div v-if="finance" class="report-content">
+          <div class="report-summary financial-kpis">
+            <div><small>Vendas brutas (faturamento)</small><strong>{{ money(finance.summary.gross) }}</strong></div>
+            <div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div>
+            <div><small>CMV · mercadorias vendidas</small><strong>{{ money(finance.summary.cogs) }}</strong></div>
+            <div class="kpi-positive"><small>Lucro bruto</small><strong>{{ money(finance.summary.gross_profit) }}</strong><span>Margem {{ Number(finance.summary.gross_margin_percentage).toFixed(1) }}%</span></div>
+            <div><small>Despesas operacionais lançadas</small><strong>{{ finance.summary.company_scope ? money(finance.summary.expense_total) : '—' }}</strong></div>
+            <div class="kpi-highlight"><small>Resultado operacional estimado</small><strong>{{ finance.summary.operating_result === null ? '—' : money(finance.summary.operating_result) }}</strong></div>
+            <div><small>Compras de estoque recebidas</small><strong>{{ money(finance.summary.purchase_total) }}</strong><span>{{ finance.summary.purchase_units }} unidades</span></div>
+            <div><small>Investimentos em equipamentos/ativos</small><strong>{{ finance.summary.company_scope ? money(finance.summary.capital_investments) : '—' }}</strong></div>
+          </div>
+          <div class="report-explanation financial-notice">
+            <strong>Como interpretar:</strong> lucro bruto = receita após descontos − custo dos itens vendidos (CMV). Resultado operacional estimado = lucro bruto − despesas lançadas. Compras para estoque e investimentos em ativos são apresentados separadamente, sem dupla dedução. Isso não é fluxo de caixa nem lucro líquido contábil.
+            <span v-if="!finance.summary.company_scope"> Os filtros por produto/categoria não alocam despesas fixas nem investimentos da empresa inteira; por isso o resultado operacional fica indisponível.</span>
+            <span v-if="finance.summary.estimated_cost_lines || finance.summary.estimated_purchase_entries"> ⚠️ {{ finance.summary.estimated_cost_lines }} itens vendidos e {{ finance.summary.estimated_purchase_entries }} recebimentos usam custo de referência estimado por ausência de histórico anterior.</span>
+          </div>
+          <section class="finance-section" aria-label="Lançamentos financeiros">
+            <div class="finance-section-heading"><div><span class="eyebrow">CONTROLE DE GASTOS</span><h3>Despesas e investimentos</h3></div><span class="count-pill">{{ finance.expenses.length + finance.investments.length }} lançamentos</span></div>
+            <form v-if="finance.summary.company_scope" class="finance-entry-form" @submit.prevent="recordFinancialEntry">
+              <label>Tipo<select v-model="financialEntry.kind" required><option value="expense">Despesa operacional</option><option value="investment">Investimento em ativo</option></select></label>
+              <label>Categoria<select v-model="financialEntry.category" required><option v-for="c in FINANCIAL_CATEGORIES" :key="c[0]" :value="c[0]">{{ c[1] }}</option></select></label>
+              <label>Descrição<input v-model="financialEntry.description" minlength="3" maxlength="200" required placeholder="Ex.: Conta de energia" /></label>
+              <label>Valor (R$)<NumericField v-model="financialEntry.amount" label="valor do lançamento" :min="0.01" step="0.01" :button-step="1" required /></label>
+              <label>Data<input v-model="financialEntry.entry_date" type="date" required /></label>
+              <button class="btn primary" type="submit" :disabled="financialEntryBusy">{{ financialEntryBusy ? 'Gravando…' : 'Adicionar lançamento' }}</button>
+            </form>
+            <p class="help-text">Use “despesa” para custos operacionais e “investimento” para compras de equipamentos. Recebimentos de mercadoria já entram automaticamente em “Compras de estoque”; não lance o mesmo valor outra vez.</p>
+            <div v-if="!finance.summary.company_scope" class="help-text">Remova os filtros de categoria e produto para visualizar despesas e investimentos gerais.</div>
+            <div v-else class="financial-entry-list">
+              <div v-for="entry in sortedFinancialEntries" :key="entry.id" class="financial-entry-row">
+                <div><strong>{{ entry.description }}</strong><small>{{ shortDate(entry.date) }} · {{ entry.category }} · {{ entry.kind === 'expense' ? 'Despesa' : 'Investimento' }}</small></div>
+                <strong>{{ money(entry.amount) }}</strong>
+                <button class="small-action" type="button" :disabled="financialEntryBusy" @click="voidFinancialEntry(entry)">Anular</button>
+              </div>
+              <p v-if="!finance.expenses.length && !finance.investments.length" class="empty">Nenhuma despesa ou investimento lançado nesse período.</p>
+            </div>
+          </section>
+          <div class="report-grid">
+            <div><h3>Resultado por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades · CMV {{ money(c.cogs) }}</small></div><div class="financial-inline-total"><b>{{ money(c.gross_profit) }}</b><small>Lucro bruto</small></div></div></div>
+            <div><h3>Resultado por produto</h3><div v-if="!finance.products.length" class="empty">Sem vendas neste período.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.quantity }} un. · Receita {{ money(p.revenue) }} · CMV {{ money(p.cogs) }}</small></div><div class="financial-inline-total"><b>{{ money(p.gross_profit) }}</b><small>Lucro bruto</small></div></div></div>
+          </div>
+          <section class="finance-section"><h3>Compras registradas no estoque</h3><div v-if="!finance.purchases.length" class="empty">Nenhuma entrada de compra neste período.</div><div v-for="p in finance.purchases" :key="p.id" class="detail-row"><div><strong>{{ p.product }}</strong><small>{{ shortDate(p.date) }} · {{ p.quantity }} un. × {{ money(p.unit_cost) }} <span v-if="p.estimated">· custo estimado</span></small></div><b>{{ money(p.total) }}</b></div></section>
+          <section class="finance-section"><h3>Evolução diária</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>Receita {{ money(d.revenue) }}</span><strong>Lucro {{ money(d.gross_profit) }}</strong></div></section>
+        </div>
+      </div>
+    </template>
     <template v-else-if="modal === 'product-photo' && catalogPhotoProduct">
       <div class="modal-body catalog-photo-modal">
         <div class="catalog-photo-preview">

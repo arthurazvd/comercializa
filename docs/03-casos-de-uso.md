@@ -98,3 +98,7 @@ Após gravação ou validação, a mensagem e a barra de progresso aparecem por 
 - **UC15 — Vender e estornar preservando custos:** o custo da saída é congelado na venda e os lotes são recompostos no estorno.
 
 Regras, fluxo alternativo e API: [Especificação de lotes](24-custos-por-lote-e-previsualizacao-de-estoque.md).
+
+## Extensão V1.4.0
+
+Casos **UC-FIN-01** (consultar lucro bruto), **UC-FIN-02** (lançar e anular despesa), **UC-FIN-03** (investimento em ativo) e **UC-FIN-04** (exportar planilha) estão descritos em [Gestão financeira](25-gestao-financeira.md).

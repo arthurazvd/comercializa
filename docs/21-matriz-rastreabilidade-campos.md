@@ -27,3 +27,14 @@
 3. Browser: criar produto com câmera/galeria e editar, trocar SKU, recarregar e conferir que foto continua; testar remoção, erro de rede e fallback; toast sumindo após 1,5s.
 4. Persistência: testar leitura após novo deploy/reinício Render e verificar quota/backup do Neon.
 5. Evidenciar eventuais falhas antes do deploy público; não afirmar cobertura total só pelo número de testes.
+
+## Extensão de cobertura V1.4.0
+
+| Campos/fluxos | Testes adicionados | Limitações |
+|---|---|---|
+| Faturamento, desconto, CMV, lucro bruto e margem | `test_financial_v140.py` | Fluxos financeiros completos dependem do `pytest` do CI |
+| Despesa/investimento: tipo, categoria, descrição, valor e data | `test_financial_v140.py` | Não substitui controle de contas a pagar |
+| Estorno e anulação | `test_financial_v140.py` | Sem integração com Pix, adquirente ou banco |
+| Produtos e categorias filtrados | `test_financial_v140.py` | Não rateia despesas fixas arbitrariamente |
+| Excel: sete abas e proteção contra fórmulas | `test_financial_v140.py` | Validação E2E em Excel real pendente |
+| Cartões KPIs e formulário mobile | `frontend/tests/finance-v140.test.js` | Teste visual em navegador/aparelho real pendente |

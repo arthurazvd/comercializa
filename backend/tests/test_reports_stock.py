@@ -130,7 +130,7 @@ def test_excel_exports_produce_valid_zip(api_client, catalog):
     sale = Sale.objects.create(discount=1)
     SaleItem.objects.create(sale=sale, product=p1, quantity=1, unit_price=10)
     verify_xlsx(api_client.get('/api/stock-export/'), ['Estoque', 'Resumo'])
-    verify_xlsx(api_client.get('/api/reports/finance/export/'), ['Resumo financeiro', 'Produtos', 'Categorias', 'Evolução diária'])
+    verify_xlsx(api_client.get('/api/reports/finance/export/'), ['Resumo financeiro', 'Produtos', 'Categorias', 'Evolução diária', 'Compras de estoque', 'Despesas', 'Investimentos'])
 
 
 def test_excel_escapes_untrusted_text_and_formula_injection():

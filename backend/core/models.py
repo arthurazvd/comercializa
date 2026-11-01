@@ -175,3 +175,45 @@ class IdempotencyRecord(models.Model):
     class Meta:
         verbose_name = 'Operação idempotente'
         verbose_name_plural = 'Operações idempotentes'
+
+
+class FinancialEntry(models.Model):
+    """Lançamento financeiro manual auditável (não confirma pagamento bancário).
+
+    Despesas operacionais afetam o resultado do período; investimentos em
+    ativos não são despesas imediatas. Aquisições de estoque são inferidas dos
+    recebimentos, nunca duplicadas neste modelo.
+    """
+    class Kind(models.TextChoices):
+        EXPENSE = 'expense', 'Despesa operacional'
+        INVESTMENT = 'investment', 'Investimento em ativo'
+
+    class Category(models.TextChoices):
+        RENT = 'aluguel', 'Aluguel'
+        SALARIES = 'pessoal', 'Pessoal'
+        TAX = 'tributos', 'Tributos e taxas'
+        FREIGHT = 'frete', 'Frete'
+        UTILITIES = 'contas', 'Água, energia e internet'
+        MARKETING = 'marketing', 'Marketing'
+        MAINTENANCE = 'manutencao', 'Manutenção'
+        EQUIPMENT = 'equipamentos', 'Equipamentos'
+        OTHER = 'outros', 'Outros'
+
+    kind = models.CharField(max_length=16, choices=Kind.choices)
+    category = models.CharField(max_length=30, choices=Category.choices)
+    description = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    entry_date = models.DateField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                   on_delete=models.SET_NULL, related_name='financial_entries')
+    voided_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    voided_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.SET_NULL, related_name='voided_financial_entries')
+
+    class Meta:
+        ordering = ['-entry_date', '-id']
+        indexes = [models.Index(fields=['kind', 'entry_date'], name='fin_kind_date_idx')]
+
+    def __str__(self):
+        return f'{self.get_kind_display()}: {self.description} — R$ {self.amount}'

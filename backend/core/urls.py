@@ -6,6 +6,7 @@ from .views import (
     StockMovementListCreateView, DashboardView, SaleCancelView, OperationStatusView,
 )
 
+from .financial_entries import FinancialEntriesView, FinancialEntryVoidView
 from .export_views import StockOverviewView, StockExportView, FinanceReportView, FinanceExportView
 
 router = DefaultRouter()
@@ -26,5 +27,7 @@ urlpatterns = [
     path("stock-overview/", StockOverviewView.as_view(), name="stock-overview"),
     path("stock-export/", StockExportView.as_view(), name="stock-export"),
     path("reports/finance/", FinanceReportView.as_view(), name="finance-report"),
+    path("finance/entries/", FinancialEntriesView.as_view(), name="finance-entries"),
+    path("finance/entries/<int:pk>/void/", FinancialEntryVoidView.as_view(), name="finance-entry-void"),
     path("reports/finance/export/", FinanceExportView.as_view(), name="finance-export"),
 ]

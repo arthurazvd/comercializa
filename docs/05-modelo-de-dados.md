@@ -84,3 +84,7 @@ O lançamento de venda e seus movimentos ocorre atomicamente. A alteração de s
 `StockLot.unit_cost` registra custo histórico por lote mesmo para itens sem validade (`expiration_date = NULL`). `StockMovement.unit_cost` registra o preço informado no recebimento. `SaleItem.cost_total` congela o custo total da linha da venda (nulo para vendas anteriores sem histórico). `Product.purchase_price` torna-se referência de custo para novas operações; `Product.sale_price` continua representando o preço de venda vigente.
 
 Migração `0008_cost_by_lot`: lotes já cadastrados recebem o custo de referência conhecido, não um histórico reconstruído; a compra original não está disponível para inferência. Consulta `GET /api/products/{id}/lots/`. Regras detalhadas em [UC13–15](24-custos-por-lote-e-previsualizacao-de-estoque.md).
+
+## Extensão V1.4.0 — FinancialEntry
+
+A migração `0009_financial_entries` introduz `FinancialEntry` para despesas (`expense`) e investimentos em ativos (`investment`), com `category`, `description`, `amount`, `entry_date`, `created_at`, `created_by`, `voided_at` e `voided_by`. Os custos dos produtos vendidos já estão congelados em `SaleItem.cost_total` desde a V1.3.0; custo por compra fica em `StockLot.unit_cost` / `StockMovement.unit_cost`. Ver [gestão financeira](25-gestao-financeira.md).

@@ -99,15 +99,43 @@ class FinanceExportView(APIView):
         sheets = [
             ('Resumo financeiro', ['Indicador', 'Valor'], [
                 ('Período inicial', report['filters']['start']), ('Período final', report['filters']['end']),
-                ('Receita bruta', summary['gross']), ('Descontos rateados', summary['discounts']),
-                ('Receita após descontos', summary['revenue']), ('Quantidade de vendas', summary['sales_count']),
-                ('Unidades vendidas', summary['items_sold']), ('Ticket médio', summary['average_ticket'])], {1: 'currency'}),
-            ('Produtos', ['Produto', 'Categoria', 'Unidades', 'Bruto', 'Descontos', 'Receita'], [
-                (p['name'], p['category'], p['quantity'], p['gross'], p['discounts'], p['revenue'])
-                for p in report['products']], {3: 'currency', 4: 'currency', 5: 'currency'}),
-            ('Categorias', ['Categoria', 'Unidades', 'Receita'], [
-                (c['name'], c['quantity'], c['revenue']) for c in report['categories']], {2: 'currency'}),
-            ('Evolução diária', ['Data', 'Unidades', 'Receita'], [
-                (d['date'], d['quantity'], d['revenue']) for d in report['daily']], {2: 'currency'}),
+                ('Vendas brutas / faturamento estimado', summary['gross']),
+                ('Descontos', summary['discounts']),
+                ('Receita após descontos', summary['revenue']),
+                ('Custo dos produtos vendidos (CMV)', summary['cogs']),
+                ('Lucro bruto', summary['gross_profit']),
+                ('Margem bruta (%)', summary['gross_margin_percentage']),
+                ('Despesas operacionais lançadas', summary['expense_total'] if summary['company_scope'] else 'Não alocadas com filtro'),
+                ('Resultado operacional estimado', summary['operating_result'] if summary['company_scope'] else 'Não calculado para filtro por produto/categoria'),
+                ('Compras de mercadorias recebidas', summary['purchase_total']),
+                ('Investimentos em ativos lançados', summary['capital_investments'] if summary['company_scope'] else 'Não alocados com filtro'),
+                ('Aplicações registradas (não é fluxo de caixa)', summary['registered_outlays'] if summary['company_scope'] else 'Não calculadas com filtro'),
+                ('Vendas válidas', summary['sales_count']),
+                ('Unidades vendidas', summary['items_sold']),
+                ('Ticket médio', summary['average_ticket']),
+                ('Itens vendidos com custo estimado', summary['estimated_cost_lines']),
+                ('Recebimentos com custo estimado', summary['estimated_purchase_entries']),
+                ('AVISO', 'Lucro bruto = receita após descontos - CMV. Resultado = lucro bruto - despesas lançadas.'),
+                ('AVISO', 'Compras para estoque e ativos não são subtraídos novamente do lucro.'),
+                ('AVISO', 'Os valores não representam fluxo de caixa nem lucro líquido contábil.'),
+            ], {}),
+            ('Produtos', ['Produto', 'Categoria', 'Unidades', 'Bruto', 'Descontos', 'Receita', 'CMV', 'Lucro bruto'], [
+                (p['name'], p['category'], p['quantity'], p['gross'], p['discounts'], p['revenue'], p['cogs'], p['gross_profit'])
+                for p in report['products']], {3: 'currency', 4: 'currency', 5: 'currency', 6: 'currency', 7: 'currency'}),
+            ('Categorias', ['Categoria', 'Unidades', 'Receita', 'CMV', 'Lucro bruto'], [
+                (c['name'], c['quantity'], c['revenue'], c['cogs'], c['gross_profit'])
+                for c in report['categories']], {2: 'currency', 3: 'currency', 4: 'currency'}),
+            ('Evolução diária', ['Data', 'Unidades', 'Receita', 'CMV', 'Lucro bruto'], [
+                (d['date'], d['quantity'], d['revenue'], d['cogs'], d['gross_profit'])
+                for d in report['daily']], {2: 'currency', 3: 'currency', 4: 'currency'}),
+            ('Compras de estoque', ['Data', 'Produto', 'SKU', 'Unidades', 'Custo unitário', 'Valor total', 'Custo estimado'], [
+                (p['date'], p['product'], p['sku'], p['quantity'], p['unit_cost'], p['total'], 'Sim' if p['estimated'] else 'Não')
+                for p in report['purchases']], {4: 'currency', 5: 'currency'}),
+            ('Despesas', ['Data', 'Categoria', 'Descrição', 'Valor'], [
+                (e['date'], e['category'], e['description'], e['amount'])
+                for e in report['expenses']], {3: 'currency'}),
+            ('Investimentos', ['Data', 'Categoria', 'Descrição', 'Valor'], [
+                (e['date'], e['category'], e['description'], e['amount'])
+                for e in report['investments']], {3: 'currency'}),
         ]
         return excel_response(make_xlsx(sheets), 'comercializa_financeiro.xlsx')

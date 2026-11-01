@@ -71,3 +71,7 @@ Neon PostgreSQL (produtos, vendas, lotes, estornos, ProductImage até 100 KB)
 **Render gratuito não possui disco persistente:** fotografias armazenadas no filesystem local seriam perdidas em deploy/sleep. Banco persistente resolve a durabilidade básica; usar object storage externo será necessário para grande volume de imagens e deverá ser introduzido por migração explícita. O plano gratuito Neon possuía limite de 1 GB de armazenamento de banco por projeto na documentação de outubro/2026; monitorar quota e backups. A estimativa de 10 mil fotos × 100 KiB ultrapassa 0,95 GiB sem considerar índices, dados e overhead.
 
 **Segurança:** login com token na produção; `GET/PUT/DELETE image` seguem as permissões padrão. CORS restrito aos domínios configurados; não persistir tokens no nome de imagem; não expor blobs no JSON.
+
+## Extensão V1.4.0 — Serviço financeiro
+
+Na implantação atual, o frontend Vue é publicado no Cloudflare Pages, o backend Django no Render e os dados PostgreSQL no Neon (o diagrama SQLite acima representa o ambiente inicial de desenvolvimento). `core.reports.finance_report` apura receita/CMV por `SaleItem.cost_total`; `StockMovement` fornece o valor das compras e `FinancialEntry` os lançamentos manuais. `core.export_views` converte o relatório em XLSX pelo gerador OOXML existente. API protegida por autenticação em produção. Ver [especificação financeira](25-gestao-financeira.md).

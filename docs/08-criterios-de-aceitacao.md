@@ -52,3 +52,15 @@ Uma recomendação é considerada aceitável quando:
 7. Compra com custo igual ou superior ao preço de venda sem ajuste de preço é recusada sem modificar estoque.
 8. A migração não atribui custos inventados a vendas anteriores; lotes antigos recebem apenas o preço de referência conhecido na data da migração.
 9. Jobs do GitHub Actions (`npm ci`, `npm test`, `npm run build`, `pytest`) devem passar, e a publicação no Render exige backup e migração 0008.
+
+## Extensão V1.4.0 — Gestão financeira
+
+1. Faturamento após estorno não inclui venda anulada; CMV também é retirado.
+2. Lucro bruto subtrai CMV histórico dos itens vendidos, e não custo atual de referência.
+3. Despesas operacionais lançadas reduzem resultado; compra de estoque não reduz resultado em duplicidade.
+4. Investimentos de ativos são informados sem dedução imediata de resultado.
+5. Produtos/categorias filtrados não recebem todo o custo fixo da empresa.
+6. Valores históricos estimados são explicitamente sinalizados.
+7. XLSX possui sete abas válidas e textos não são executados como fórmulas.
+8. POST com a mesma chave idempotente não gera dois lançamentos, e anulação é auditável.
+9. Relatório está acessível no desktop e celular. Ver [casos e regras](25-gestao-financeira.md).

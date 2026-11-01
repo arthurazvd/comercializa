@@ -102,3 +102,7 @@ Em evolução posterior, o SAD deverá classificar produtos por participação n
 - RF-HIST-CUSTO: congelar o custo das unidades consumidas na venda; preservar lotes e custos durante estorno.
 
 Consulte [detalhamento UC13–15](24-custos-por-lote-e-previsualizacao-de-estoque.md).
+
+## Extensão implementada V1.4.0 — Financeiro
+
+Ver requisitos **RF-FIN-01 a RF-FIN-12**, fórmulas, diferenciação entre lucro e caixa e restrições de alocação em [Gestão financeira](25-gestao-financeira.md).

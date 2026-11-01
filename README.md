@@ -293,3 +293,7 @@ Documentos principais do Projeto 01:
 - [Plano da Iteração 1](docs/14-iteracao-01.md)
 - [Plano de Teste Geral (PTG)](docs/15-plano-teste-geral.md)
 - [Plano de Teste das Iterações 1 e 2 (PTI)](docs/16-plano-teste-iteracoes-01-02.md)
+
+## Gestão financeira (V1.4.0)
+
+O Comercializa agora mostra faturamento, receita após descontos, CMV por custo histórico de venda, lucro bruto, margem, despesas operacionais lançadas, resultado operacional estimado, compras de estoque e investimentos em ativos. O menu **Financeiro** abre os filtros, lançamentos, comparações e a exportação Excel com sete abas. Veja [requisitos, casos de uso, modelo de dados e advertências de precisão](docs/25-gestao-financeira.md). **É necessária a migração `0009_financial_entries` no Neon; faça backup antes de publicar.** Atualize backend no Render antes do frontend no Cloudflare Pages. O resultado NÃO é fluxo de caixa nem lucro líquido contábil.
