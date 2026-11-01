@@ -28,6 +28,7 @@ const paths = {
   money: 'M3 7h18v12H3z M3 7l3-3h12l3 3 M12 10a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   layers: 'm12 2 9 5-9 5-9-5 9-5z M3 12l9 5 9-5 M3 17l9 5 9-5',
   sparkles: 'm12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2z',
+  camera: 'M4 7h4l2-3h4l2 3h4a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1z M12 10a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
   info: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z M12 10v6 M12 7h.01',
 }
 const d = computed(() => paths[props.name] || paths.package)

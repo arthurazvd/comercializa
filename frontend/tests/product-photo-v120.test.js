@@ -10,8 +10,8 @@ const css = read('../src/style.css')
 const backend = read('../../backend/core/views.py')
 
 // Verificações unitárias de campos e contratos de integração; NÃO substituem teste E2E.
-test('versão 1.2.0 é a mesma do manifesto', () => {
-  assert.equal(APP_VERSION, '1.2.0')
+test('versão SemVer é a mesma do manifesto', () => {
+  assert.match(APP_VERSION, /^\d+\.\d+\.\d+$/)
   assert.equal(JSON.parse(read('../package.json')).version, APP_VERSION)
 })
 test('nomes de arquivo seguem SKU e terminam em JPEG, sem diretórios', () => {

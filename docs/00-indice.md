@@ -46,3 +46,5 @@
 - [Contrato de API e armazenamento das fotos](22-contrato-api-fotos.md)
 
 O conjunto `01`–`16` permanece como documentação funcional e acadêmica de base. As seções **Estado implementado V1.2.0** complementam os documentos em que o escopo evoluiu. Relatórios de iterações antigas são históricos e não representam todas as funções atuais.
+
+- [23 — Fotos no catálogo e ciclo das notificações (V1.2.1)](23-fotos-catalogo-notificacoes.md)

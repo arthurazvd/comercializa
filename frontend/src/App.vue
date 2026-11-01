@@ -68,6 +68,79 @@ const photoError = ref('')
 const removePhoto = ref(false)
 const photoGalleryInput = ref(null)
 const photoCameraInput = ref(null)
+// Edição rápida de fotografias diretamente na lista do catálogo.
+const catalogPhotoProduct = ref(null)
+const catalogPhotoFile = ref(null)
+const catalogPhotoPreview = ref('')
+const catalogPhotoBusy = ref(false)
+const catalogPhotoError = ref('')
+const catalogGalleryInput = ref(null)
+const catalogCameraInput = ref(null)
+let catalogPhotoSequence = 0
+function resetCatalogPhoto() {
+  ++catalogPhotoSequence
+  if (catalogPhotoPreview.value) URL.revokeObjectURL(catalogPhotoPreview.value)
+  catalogPhotoPreview.value = ''
+  catalogPhotoFile.value = null
+  catalogPhotoError.value = ''
+  catalogPhotoBusy.value = false
+}
+function openCatalogPhoto(product) {
+  resetCatalogPhoto()
+  catalogPhotoProduct.value = product
+  modal.value = 'product-photo'
+}
+async function selectCatalogPhoto(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || !catalogPhotoProduct.value) return
+  const sequence = ++catalogPhotoSequence
+  catalogPhotoBusy.value = true
+  catalogPhotoError.value = ''
+  try {
+    const processed = await normalizeProductPhoto(file, catalogPhotoProduct.value.sku || catalogPhotoProduct.value.id)
+    if (sequence !== catalogPhotoSequence) return
+    if (catalogPhotoPreview.value) URL.revokeObjectURL(catalogPhotoPreview.value)
+    catalogPhotoPreview.value = URL.createObjectURL(processed)
+    catalogPhotoFile.value = processed
+  } catch (error) {
+    if (sequence === catalogPhotoSequence) catalogPhotoError.value = error.message || 'Não foi possível preparar a foto.'
+  } finally { if (sequence === catalogPhotoSequence) catalogPhotoBusy.value = false }
+}
+async function saveCatalogPhoto() {
+  if (!catalogPhotoFile.value || catalogPhotoBusy.value || !catalogPhotoProduct.value) return
+  const productId = catalogPhotoProduct.value.id
+  catalogPhotoBusy.value = true
+  catalogPhotoError.value = ''
+  try {
+    const data = new FormData()
+    data.append('image', catalogPhotoFile.value, catalogPhotoFile.value.name)
+    const response = await api.put(`products/${productId}/image/`, data)
+    products.value = upsertById(products.value, { ...catalogPhotoProduct.value, ...response.data })
+    invalidateResource('products')
+    modal.value = ''
+    alertUser('Foto do produto salva com sucesso.')
+    refreshCatalogInBackground()
+  } catch (error) {
+    catalogPhotoError.value = errorText(error) || 'Não foi possível salvar a foto. Tente novamente.'
+  } finally { catalogPhotoBusy.value = false }
+}
+async function deleteCatalogPhoto() {
+  if (catalogPhotoBusy.value || !catalogPhotoProduct.value) return
+  const productId = catalogPhotoProduct.value.id
+  catalogPhotoBusy.value = true
+  catalogPhotoError.value = ''
+  try {
+    const response = await api.delete(`products/${productId}/image/`)
+    products.value = upsertById(products.value, { ...catalogPhotoProduct.value, ...response.data })
+    invalidateResource('products')
+    modal.value = ''
+    alertUser('Foto removida com sucesso.')
+    refreshCatalogInBackground()
+  } catch (error) {
+    catalogPhotoError.value = errorText(error) || 'Não foi possível remover a foto.'
+  } finally { catalogPhotoBusy.value = false }
+}
 let photoPickSequence = 0
 function clearPhotoState() {
   ++photoPickSequence
@@ -169,10 +242,10 @@ const modalItems = computed(() => {
   if (modal.value === 'vencido' || modal.value === 'a_vencer') return filteredInventory(products.value, '', modal.value)
   return []
 })
-const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas', 'sale-reversal': 'Estornar venda' }
+const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas', 'sale-reversal': 'Estornar venda', 'product-photo': 'Foto do produto' }
 
 watch(theme, value => { document.documentElement.dataset.theme = value; saveTheme(value) }, { immediate: true })
-watch(modal, value => { document.body.style.overflow = value ? 'hidden' : '' })
+watch(modal, value => { document.body.style.overflow = value ? 'hidden' : ''; if (value !== 'product-photo') resetCatalogPhoto() })
 watch(() => reportFilters.value.category, () => { reportFilters.value.product = '' })
 watch(chartPeriod, period => {
   if (period === '90d') chartGrouping.value = 'week'
@@ -218,6 +291,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onAppResume)
   toastController.dispose()
   clearPhotoState()
+  resetCatalogPhoto()
   window.clearTimeout(saleSearchBlurTimer)
   document.body.style.overflow = ''
 })
@@ -663,7 +737,7 @@ async function adjustStock() {
   finally { busy.value = false }
 }
 function openModal(type) { modal.value = type; if (type === 'finance') refreshFinance() }
-function closeModal() { modal.value = ''; saleToReverse.value = null }
+function closeModal() { if (catalogPhotoBusy.value && modal.value === 'product-photo') return; modal.value = ''; saleToReverse.value = null }
 function openInventory(status = 'all') { tab.value = 'inventory'; stockFilter.value = status; closeModal() }
 async function refreshFinance() {
   if (!reportFilters.value.start || !reportFilters.value.end || reportFilters.value.start > reportFilters.value.end) { alertUser('Corrija o intervalo de datas.', 'error'); return }
@@ -739,7 +813,7 @@ function labelStatus(p) {
   </aside>
   <main class="main-content">
     <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
-    <Transition name="toast"><div v-if="toast" :key="toast.id" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer" aria-hidden="true" @animationend="closeToastAtProgressEnd(toast.id)"></span></div></Transition>
+    <Transition name="toast"><div v-if="toast" :key="toast.id" :class="['toast-notice', toast.type]" @animationend="closeToastAtProgressEnd(toast.id)" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer" aria-hidden="true" @animationend="closeToastAtProgressEnd(toast.id)"></span></div></Transition>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
     <div v-else-if="!dashboard && tab === 'dashboard'" class="panel data-empty-state" role="status">Os dados ainda não foram carregados. <button class="btn secondary" type="button" @click="refreshVisibleData">Atualizar dados</button></div>
 
@@ -795,7 +869,7 @@ function labelStatus(p) {
                 <p v-if="photoError" class="photo-error" role="alert">{{ photoError }}</p>
               </div>
             </div><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy || photoBusy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
-      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><ProductThumbnail :product-id="p.id" :updated-at="p.image_updated_at" :name="p.name" /><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
+      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><ProductThumbnail :product-id="p.id" :updated-at="p.image_updated_at" :name="p.name" /><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button type="button" class="catalog-photo-action" :aria-label="`${p.has_image ? 'Alterar' : 'Adicionar'} foto de ${p.name}`" @click="openCatalogPhoto(p)"><AppIcon name="camera" :size="15" /> {{ p.has_image ? 'Alterar foto' : 'Adicionar foto' }}</button><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
     </section>
 
     <section v-if="tab === 'sales'">
@@ -855,8 +929,34 @@ function labelStatus(p) {
     </footer>
   </main>
 
-  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
+  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : modal === 'product-photo' ? 'CATÁLOGO / IMAGEM' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
     <template v-if="modal === 'finance'"><div class="modal-body"><p class="help-text" style="margin-bottom:18px">Receita após descontos (não equivale a lucro líquido). Filtre o intervalo e explore produtos e categorias.</p><form class="report-filters" @submit.prevent="refreshFinance"><label>Início<input v-model="reportFilters.start" type="date" required /></label><label>Fim<input v-model="reportFilters.end" type="date" required /></label><label>Categoria<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar' }}</button></form><div class="report-actions"><button type="button" class="btn secondary" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button><button type="button" class="btn secondary" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button><button class="btn secondary" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel</button></div><div v-if="financeError && !finance" class="report-unavailable" role="status">Relatório indisponível no momento. <button type="button" class="btn secondary" @click="refreshFinance">Tentar novamente</button></div><div v-if="finance" class="report-content"><div class="report-summary"><div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div><div><small>Vendas</small><strong>{{ finance.summary.sales_count }}</strong></div><div><small>Unidades vendidas</small><strong>{{ finance.summary.items_sold }}</strong></div><div><small>Ticket médio</small><strong>{{ money(finance.summary.average_ticket) }}</strong></div></div><div class="report-explanation">Bruto: {{ money(finance.summary.gross) }} · Descontos atribuídos: {{ money(finance.summary.discounts) }}. A análise considera somente os filtros aplicados.</div><div class="report-grid"><div><h3>Desempenho por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades</small></div><b>{{ money(c.revenue) }}</b></div></div><div><h3>Produtos vendidos</h3><div v-if="!finance.products.length" class="empty">Sem itens vendidos.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.category }} · {{ p.quantity }} un.</small></div><b>{{ money(p.revenue) }}</b></div></div></div><h3 style="margin-top:24px">Evolução por dia</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>{{ d.quantity }} unidades</span><strong>{{ money(d.revenue) }}</strong></div></div></div></template>
+    <template v-else-if="modal === 'product-photo' && catalogPhotoProduct">
+      <div class="modal-body catalog-photo-modal">
+        <div class="catalog-photo-preview">
+          <img v-if="catalogPhotoPreview" :src="catalogPhotoPreview" alt="Prévia da foto selecionada" />
+          <ProductThumbnail v-else :product-id="catalogPhotoProduct.id" :updated-at="catalogPhotoProduct.image_updated_at" :name="catalogPhotoProduct.name" size="editor" />
+        </div>
+        <div class="catalog-photo-info">
+          <strong>{{ catalogPhotoProduct.name }}</strong>
+          <small>Código: {{ catalogPhotoProduct.sku || catalogPhotoProduct.id }}</small>
+          <p>Escolha uma imagem ou tire uma foto. O sistema converte para JPEG quadrado de até 100 KB.</p>
+        </div>
+        <div class="catalog-photo-buttons">
+          <button type="button" class="btn secondary" :disabled="catalogPhotoBusy" @click="catalogGalleryInput?.click()"><AppIcon name="add" :size="16" /> Galeria</button>
+          <button type="button" class="btn secondary" :disabled="catalogPhotoBusy" @click="catalogCameraInput?.click()"><AppIcon name="camera" :size="16" /> Tirar foto</button>
+        </div>
+        <input ref="catalogGalleryInput" class="visually-hidden-input" type="file" accept="image/*" aria-label="Escolher foto do produto na galeria" @change="selectCatalogPhoto" />
+        <input ref="catalogCameraInput" class="visually-hidden-input" type="file" accept="image/*" capture="environment" aria-label="Tirar foto do produto com a câmera" @change="selectCatalogPhoto" />
+        <p v-if="catalogPhotoFile" class="photo-ready">{{ catalogPhotoFile.name }} · {{ (catalogPhotoFile.size / 1024).toFixed(1) }} KB</p>
+        <p v-if="catalogPhotoError" class="photo-error" role="alert">{{ catalogPhotoError }}</p>
+      </div>
+      <footer class="modal-footer catalog-photo-footer">
+        <button type="button" class="btn secondary" :disabled="catalogPhotoBusy" @click="closeModal">Cancelar</button>
+        <button v-if="catalogPhotoProduct.has_image" type="button" class="btn photo-remove" :disabled="catalogPhotoBusy" @click="deleteCatalogPhoto">Remover foto atual</button>
+        <button type="button" class="btn primary" :disabled="catalogPhotoBusy || !catalogPhotoFile" @click="saveCatalogPhoto">{{ catalogPhotoBusy ? 'Salvando…' : 'Salvar foto' }}</button>
+      </footer>
+    </template>
     <template v-else-if="modal === 'sale-reversal' && saleToReverse">
       <form class="reversal-form" @submit.prevent="confirmReversal">
         <div class="modal-body">

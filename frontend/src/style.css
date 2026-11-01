@@ -734,3 +734,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .photo-error { margin: 0; color: #ce5050; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .visually-hidden-input { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media(max-width: 520px) { .product-photo-editor { flex-direction: column; gap: 12px; }.photo-preview { width: 100%; height: 180px; }.photo-preview .product-thumbnail--editor { width: 100%; height: 180px; }.photo-buttons .btn { flex: 1 1 135px; } }
+
+/* V1.2.1 — catálogo com edição de fotos visível; notificações sempre temporárias. */
+.toast-notice { animation: toastVisualExpiry 1.5s linear both; }
+@keyframes toastVisualExpiry {
+  0%, 84% { opacity: 1; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
+.catalog-photo-action { color: var(--accent) !important; font-weight: 800 !important; }
+.catalog-photo-modal { display: grid; justify-items: center; gap: 15px; }
+.catalog-photo-preview { width: min(100%, 240px); aspect-ratio: 1; border: 1px solid var(--stroke); border-radius: 15px; background: var(--canvas); display: grid; place-items: center; overflow: hidden; }
+.catalog-photo-preview > img { width: 100%; height: 100%; object-fit: cover; }
+.catalog-photo-preview .product-thumbnail--editor { width: 100%; height: 100%; }
+.catalog-photo-info { width: 100%; text-align: center; display: grid; justify-items: center; gap: 6px; }
+.catalog-photo-info strong { font-size: 15px; color: var(--ink); }
+.catalog-photo-info small { color: var(--muted); font-size: 12px; }
+.catalog-photo-info p { max-width: 360px; }
+.catalog-photo-buttons { display: flex; justify-content: center; gap: 10px; width: 100%; }
+.catalog-photo-buttons .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.catalog-photo-footer { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 520px) {
+  .catalog-photo-buttons .btn { flex: 1; }
+  .catalog-photo-footer .btn { flex: 1 1 120px; }
+  .inline-actions .catalog-photo-action { width: 100%; text-align: left; min-height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-notice { animation: none; }
+}

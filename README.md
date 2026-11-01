@@ -1,3 +1,11 @@
+## Comercializa V1.2.1 — Botão de fotos no catálogo e avisos temporários
+
+Agora cada item do **Catálogo** oferece **Adicionar foto / Alterar foto** (sem precisar entrar no cadastro), com câmera, galeria e miniatura. O cadastro de produtos mantém o editor de imagens. Os avisos visuais expiram após **1,5 segundo** tanto por temporizador como por animação; mensagens realmente persistentes de erro de login são exibidas no formulário, não são pop-ups.
+
+**Importante:** para usar imagens, publicar o backend V1.2.0 ou superior no Render e executar a migração `core.0007_product_image` no banco Neon. Depois publicar a V1.2.1 no Cloudflare Pages. Confirmar **Versão 1.2.1** no rodapé. Se ainda mostrar V1.1.0, a nova interface não foi implantada no site. Confira os deploys e faça recarregamento completo. Consulte [documentação da funcionalidade](docs/23-fotos-catalogo-notificacoes.md).
+
+---
+
 # Comercializa
 
 Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércios.
