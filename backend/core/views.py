@@ -100,7 +100,7 @@ class SaleListCreateView(IdempotentCreateMixin, generics.ListCreateAPIView):
     def get_serializer_class(self):
         return SaleCreateSerializer if self.request.method == "POST" else SaleSerializer
 
-    def create(self, request, *args, **kwargs):
+    def _create_business_response(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         sale = serializer.save()
@@ -113,7 +113,7 @@ class StockMovementListCreateView(IdempotentCreateMixin, generics.ListCreateAPIV
     def get_serializer_class(self):
         return StockAdjustmentSerializer if self.request.method == "POST" else StockMovementSerializer
 
-    def create(self, request, *args, **kwargs):
+    def _create_business_response(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         movement = serializer.save()

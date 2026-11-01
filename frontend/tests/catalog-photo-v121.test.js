@@ -10,8 +10,8 @@ const css = get('../src/style.css')
 
 // Contract tests ensure that direct catalog actions are connected to the existing
 // authenticated image endpoint; a real Cloudflare + Render smoke test is still necessary.
-test('V1.2.1 is visible and consistent with manifest', () => {
-  assert.equal(APP_VERSION, '1.2.1')
+test('visible version matches SemVer manifest', () => {
+  assert.equal(APP_VERSION, '1.2.2')
   assert.equal(JSON.parse(get('../package.json')).version, APP_VERSION)
   assert.match(app, /Versão \{\{ APP_VERSION \}\}/)
 })

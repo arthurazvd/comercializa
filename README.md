@@ -1,3 +1,16 @@
+## Comercializa V1.2.2 — Integridade do pipeline e prevenção de duplicidade
+
+Esta correção mantém os recursos da V1.2.1 (fotos no catálogo e avisos temporários) e ajusta o pipeline do GitHub Actions:
+
+- O `frontend/package-lock.json` foi corrigido para a dependência publicada `es-object-atoms@^1.1.1` exigida por `get-intrinsic@1.3.0`.
+- Vendas e movimentações agora passam pelo `IdempotentCreateMixin` antes de gravar; antes suas implementações próprias de `create()` ignoravam esse mixin.
+- A mesma `Idempotency-Key` devolve a resposta original sem duplicar venda/estoque, com histórico de confirmação consultável.
+- Frontend identificado como **Versão 1.2.2**. Não há migração nova; é necessário publicar o **backend no Render** e o **frontend no Cloudflare Pages** a partir deste código.
+
+Validação obrigatória: aguarde a aprovação dos dois jobs do GitHub Actions (`npm ci`, testes, build, `pytest`) antes de publicar. Para detalhes dos casos de teste consulte [Plano de Testes](docs/07-plano-de-testes.md). O ambiente de desenvolvimento do patch não teve acesso ao registro npm nem ao Django; verificar a CI é indispensável.
+
+---
+
 ## Comercializa V1.2.1 — Botão de fotos no catálogo e avisos temporários
 
 Agora cada item do **Catálogo** oferece **Adicionar foto / Alterar foto** (sem precisar entrar no cadastro), com câmera, galeria e miniatura. O cadastro de produtos mantém o editor de imagens. Os avisos visuais expiram após **1,5 segundo** tanto por temporizador como por animação; mensagens realmente persistentes de erro de login são exibidas no formulário, não são pop-ups.

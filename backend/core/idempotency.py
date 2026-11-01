@@ -19,11 +19,19 @@ KEY_PATTERN = re.compile(r'^[A-Za-z0-9_-]{16,100}$')
 
 
 class IdempotentCreateMixin:
+    def _create_business_response(self, request, *args, **kwargs):
+        """Hook for endpoints that need a custom response serializer.
+
+        Keep ``create`` owned by this mixin so the idempotency transaction is
+        never bypassed by a view-specific POST handler.
+        """
+        return super().create(request, *args, **kwargs)
+
     def create(self, request, *args, **kwargs):
         key = request.headers.get('Idempotency-Key', '')
         if not key:
             # Clientes antigos permanecem compatíveis durante a implantação.
-            return super().create(request, *args, **kwargs)
+            return self._create_business_response(request, *args, **kwargs)
         if not KEY_PATTERN.fullmatch(key):
             return Response({'detail': 'Chave de operação inválida.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -51,7 +59,11 @@ class IdempotentCreateMixin:
                 return Response(record.response_body, status=record.response_status,
                                 headers={'X-Idempotent-Replay': 'true'})
 
-            response = super().create(request, *args, **kwargs)
+            response = self._create_business_response(request, *args, **kwargs)
+            if response.status_code >= 400:
+                # A rejected operation must not leave behind an idempotency key.
+                transaction.set_rollback(True)
+                return response
             record.response_status = response.status_code
             record.response_body = response.data
             record.save(update_fields=['response_status', 'response_body'])

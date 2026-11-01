@@ -104,3 +104,12 @@ Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-
 - Backend: `cd backend && pip install -r requirements.txt && pytest`. Os novos testes em `tests/test_product_images.py` verificam upload/download JPEG, nome SKU/ID, substituição, exclusão, limite, assinatura inválida, dimensões, autenticação e exclusão em cascata.
 - Integração manual obrigatória: testar em câmera real Android/iOS, foto do dispositivo, troca de tema, sessão autenticada, edição de SKU, perda da conexão entre criar produto e subir foto, migração `0007` e leitura após redeploy/sleep no Render.
 - **Não há teste E2E/browser automatizado abrangente nem medição de cobertura por campo.** Cenários de campos cobertos e lacunas estão em `21-matriz-rastreabilidade-campos.md`; não afirmar 100% de cobertura só porque todos os testes executaram.
+
+
+## Integração contínua — consistência dos cadastros e dependências (V1.2.2)
+
+- `frontend/package-lock.json` deve conter dependências transitivas publicadas no npm. O pacote `get-intrinsic@1.3.0` depende de `es-object-atoms@^1.1.1` (não de `^1.2.0`, que não existe); validar com `cd frontend && npm ci && npm test && npm run build`.
+- `backend/tests/test_idempotency.py`: repetir um POST de **venda** ou **ajuste de estoque** com o mesmo cabeçalho `Idempotency-Key` e conteúdo deve devolver o **mesmo ID** e não alterar estoque mais de uma vez. Reutilizar a chave com conteúdo diferente deve responder `409` sem criar novo registro.
+- `backend/tests/test_sale_reversal.py`: `GET /api/operations/<chave>/` deve devolver a confirmação de uma venda gravada, e uma chave inexistente deve retornar `404`.
+- Rodar `cd backend && pytest --cov=core --cov-report=term-missing --cov-report=xml:coverage.xml`. É obrigatório obter sucesso nas duas tarefas do GitHub Actions antes de aprovar uma implantação.
+- Após o deploy, realizar **teste manual controlado** de uma venda e uma movimentação, comparando saldos e IDs antes/depois de repetir a mesma chave. Não utilizar dados reais sensíveis nem executar repetição de operações em produção indiscriminadamente.

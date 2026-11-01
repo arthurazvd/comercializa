@@ -41,6 +41,8 @@ def test_repetir_venda_nao_baixa_estoque_duas_vezes():
     product.refresh_from_db()
     assert first.status_code == second.status_code == 201
     assert first.data['id'] == second.data['id']
+    assert second['X-Idempotent-Replay'] == 'true'
+    assert IdempotencyRecord.objects.filter(key=key).count() == 1
     assert product.stock == 17
     assert Sale.objects.count() == 1
     assert StockMovement.objects.count() == 1
@@ -57,6 +59,8 @@ def test_repetir_movimentacao_nao_muda_estoque_novamente():
     product.refresh_from_db()
     assert first.status_code == second.status_code == 201
     assert first.data['id'] == second.data['id']
+    assert second['X-Idempotent-Replay'] == 'true'
+    assert IdempotencyRecord.objects.filter(key=key).count() == 1
     assert product.stock == 15
     assert StockMovement.objects.count() == 1
 
@@ -71,3 +75,39 @@ def test_operacao_invalida_nao_cria_marcador_e_cliente_antigo_funciona():
     old = client.post('/api/categories/', {'name': 'Sem cabeçalho'}, format='json')
     assert old.status_code == 201
     assert IdempotencyRecord.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_reuso_da_chave_de_venda_para_payload_diferente_nao_altera_estoque():
+    product = Product.objects.create(name='Garrafa', sale_price=15, stock=10)
+    client = APIClient()
+    key = 'conflict-sale-key-1234567890'
+    first = client.post('/api/sales/', {
+        'items': [{'product': product.pk, 'quantity': 2}],
+    }, format='json', HTTP_IDEMPOTENCY_KEY=key)
+    changed = client.post('/api/sales/', {
+        'items': [{'product': product.pk, 'quantity': 4}],
+    }, format='json', HTTP_IDEMPOTENCY_KEY=key)
+    product.refresh_from_db()
+    assert first.status_code == 201
+    assert changed.status_code == 409
+    assert product.stock == 8
+    assert Sale.objects.count() == 1
+    assert IdempotencyRecord.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_movimentacao_com_chave_registra_resposta_consultavel():
+    product = Product.objects.create(name='Caixa', sale_price=10, stock=2)
+    client = APIClient()
+    key = 'stock-confirmation-1234567890'
+    created = client.post('/api/stock-movements/', {
+        'product': product.pk, 'delta': 3, 'justification': 'recebimento',
+    }, format='json', HTTP_IDEMPOTENCY_KEY=key)
+    confirmed = client.get(f'/api/operations/{key}/')
+    assert created.status_code == 201
+    assert confirmed.status_code == 200
+    assert confirmed.data['confirmed'] is True
+    assert confirmed.data['data']['id'] == created.data['id']
+    assert confirmed.data['path'] == '/api/stock-movements/'
+    assert StockMovement.objects.count() == 1
