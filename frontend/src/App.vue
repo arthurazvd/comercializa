@@ -261,6 +261,23 @@ async function signOut() {
   dashboardReport.value = null
 }
 function alertUser(text, type = 'success') { toastController.show(text, type) }
+function notifyWriteFailure(error) {
+  const message = writeErrorText(error, errorText)
+  // Com resposta perdida, a verificação continua em segundo plano; um aviso
+  // vermelho seria enganoso (a API pode já ter retornado 201 Created).
+  if (message) alertUser(message, 'error')
+}
+function applyConfirmedWrite(updateUI, response) {
+  // O sucesso HTTP é definitivo. Uma falha reativa/local NÃO pode ser
+  // apresentada como falha da gravação no servidor.
+  try { updateUI(response) }
+  catch (error) {
+    console.error('Operação confirmada, mas a interface não sincronizou:', error)
+    alertUser('Operação salva. Atualizando a lista…')
+    refreshVisibleData()
+  }
+}
+
 function errorText(error) {
   const data = error?.response?.data
   if (!data) return 'Não foi possível conectar à API. Verifique se o backend está ativo.'
@@ -329,16 +346,20 @@ async function saveProduct() {
   if (busy.value) return
   busy.value = true
   const payload = { ...productForm.value, category: productForm.value.category || null, sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
+  const submittedForm = JSON.stringify(productForm.value)
+  const onSaved = response => {
+    invalidateResource('products')
+    products.value = upsertById(products.value, response.data)
+    if (JSON.stringify(productForm.value) === submittedForm) resetProduct()
+    alertUser(payload.id ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
+    refreshCatalogInBackground()
+  }
   try {
     const response = payload.id
       ? await api.put(`products/${payload.id}/`, payload)
-      : await postWithRecovery('products/', payload)
-    invalidateResource('products')
-    products.value = upsertById(products.value, response.data)
-    resetProduct()
-    alertUser(payload.id ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
-    refreshCatalogInBackground()
-  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+      : await postWithRecovery('products/', payload, { onConfirmedLater: result => applyConfirmedWrite(onSaved, result) })
+    applyConfirmedWrite(onSaved, response)
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 async function toggleProduct(product) {
@@ -369,14 +390,20 @@ async function deleteProduct(product) {
 async function addCategory() {
   if (busy.value || !categoryName.value.trim()) return
   busy.value = true
-  try {
-    const response = await postWithRecovery('categories/', { name: categoryName.value.trim() })
+  const submittedName = categoryName.value.trim()
+  const onSaved = response => {
     invalidateResource('categories')
     categories.value = upsertById(categories.value, response.data)
-    categoryName.value = ''
+    if (categoryName.value.trim() === submittedName) categoryName.value = ''
     alertUser('Categoria criada com sucesso.')
     void refreshResources(['categories'], { force: true })
-  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+  }
+  try {
+    const response = await postWithRecovery('categories/', { name: submittedName }, {
+      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
+    })
+    applyConfirmedWrite(onSaved, response)
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 function addItem() {
@@ -461,43 +488,68 @@ function openReversal(sale) {
 async function confirmReversal() {
   if (busy.value || !reversalValid.value) return
   busy.value = true
+  const saleId = saleToReverse.value.id
   const reason = reversalReason.value === 'Outro motivo'
     ? reversalDetails.value.trim() : reversalReason.value
-  try {
-    const { data } = await postWithRecovery(`sales/${saleToReverse.value.id}/cancel/`, { reason })
+  const onSaved = response => {
+    const data = response.data
     sales.value = upsertById(sales.value, data)
-    closeModal()
+    if (saleToReverse.value?.id === saleId) closeModal()
     alertUser(`Venda #${data.id} estornada. Estoque devolvido e reembolso de ${money(data.refunded_amount)} registrado.`)
     refreshChartsAfterWrite()
-  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+  }
+  try {
+    const response = await postWithRecovery(`sales/${saleId}/cancel/`, { reason }, {
+      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
+    })
+    applyConfirmedWrite(onSaved, response)
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 
 async function registerSale() {
   if (!cartValid.value || busy.value) return
   busy.value = true
-  try {
-    const response = await postWithRecovery('sales/', { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) })
+  const submittedForm = JSON.stringify(saleForm.value)
+  const payload = { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) }
+  const onSaved = response => {
     invalidateResource('sales')
     sales.value = upsertById(sales.value, response.data)
-    saleForm.value = { items: [], discount: 0 }
-    saleDraft.value = { product: '', quantity: 1, query: '' }
+    if (JSON.stringify(saleForm.value) === submittedForm) {
+      saleForm.value = { items: [], discount: 0 }
+      saleDraft.value = { product: '', quantity: 1, query: '' }
+    }
     alertUser('Venda registrada! Estoque atualizado no servidor.')
     refreshChartsAfterWrite()
-  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+  }
+  try {
+    const response = await postWithRecovery('sales/', payload, {
+      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
+    })
+    applyConfirmedWrite(onSaved, response)
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 async function adjustStock() {
   if (busy.value || !movementFormValid.value) return
   busy.value = true
-  try {
-    const response = await postWithRecovery('stock-movements/', { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) })
+  const originalForm = JSON.stringify([stockProduct.value, stockDelta.value, stockReason.value, stockCustomNote.value, stockExpiry.value])
+  const payload = { product: Number(stockProduct.value), delta: Number(stockDelta.value), note: stockNote.value, justification: stockReason.value, ...(showingReceiptExpiry.value ? { expiration_date: stockExpiry.value } : {}) }
+  const onSaved = response => {
     invalidateResource('movements')
     movements.value = upsertById(movements.value, response.data)
-    stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''
+    if (JSON.stringify([stockProduct.value, stockDelta.value, stockReason.value, stockCustomNote.value, stockExpiry.value]) === originalForm) {
+      stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''
+    }
     alertUser('Movimentação registrada com sucesso.')
     refreshChartsAfterWrite()
-  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+  }
+  try {
+    const response = await postWithRecovery('stock-movements/', payload, {
+      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
+    })
+    applyConfirmedWrite(onSaved, response)
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 function openModal(type) { modal.value = type; if (type === 'finance') refreshFinance() }

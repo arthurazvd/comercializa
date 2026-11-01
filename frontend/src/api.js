@@ -11,10 +11,14 @@ export function getAuthToken() {
 }
 export function saveAuthToken(token) {
   pendingPosts.clear()
+  for (const job of backgroundConfirmations.values()) job.active = false
+  backgroundConfirmations.clear()
   try { window.sessionStorage.setItem(TOKEN_KEY, token) } catch { /* sem armazenamento */ }
 }
 export function clearAuthToken() {
   pendingPosts.clear()
+  for (const job of backgroundConfirmations.values()) job.active = false
+  backgroundConfirmations.clear()
   try { window.sessionStorage.removeItem(TOKEN_KEY) } catch { /* sem armazenamento */ }
 }
 
@@ -34,8 +38,15 @@ api.interceptors.request.use(config => {
 
 const transientStatuses = new Set([502, 503, 504])
 export function isTransientFailure(error) {
-  if (axios.isCancel(error)) return false
-  return !error?.response || transientStatuses.has(error.response.status)
+  // Exceções de Vue/JavaScript não são falhas de rede. Essa distinção evita
+  // informar que um POST 201 falhou se a interface lançar um TypeError depois.
+  if (axios.isCancel(error) || !axios.isAxiosError(error)) return false
+  if (error.response) return transientStatuses.has(error.response.status)
+  return ['ECONNABORTED', 'ETIMEDOUT', 'ERR_NETWORK'].includes(error.code)
+}
+
+export function isWritePending(error) {
+  return error?.code === 'COMERCIALIZA_WRITE_PENDING'
 }
 
 api.interceptors.response.use(
@@ -60,6 +71,47 @@ api.interceptors.response.use(
 )
 
 const pendingPosts = new Map()
+const backgroundConfirmations = new Map()
+
+function finishPendingOperation(signature, storedName) {
+  pendingPosts.delete(signature)
+  setPendingStorage(storedName, null)
+  const pending = backgroundConfirmations.get(signature)
+  if (pending) {
+    pending.active = false
+    backgroundConfirmations.delete(signature)
+  }
+}
+
+function continueConfirmation(url, key, signature, storedName, onConfirmedLater) {
+  if (typeof onConfirmedLater !== 'function') return
+  if (backgroundConfirmations.has(signature)) return
+  const job = { active: true }
+  backgroundConfirmations.set(signature, job)
+  // Nunca reenvia uma escrita automaticamente nesta fase: consulta apenas o
+  // comprovante da operação já gravado, usando a mesma chave idempotente.
+  void (async () => {
+    for (const delay of [1500, 3000, 6000, 12000, 24000, 48000]) {
+      await new Promise(resolve => setTimeout(resolve, delay))
+      if (!job.active) break
+      try {
+        const response = await findConfirmedPost(url, key)
+        if (response && job.active) {
+          finishPendingOperation(signature, storedName)
+          onConfirmedLater(response)
+          return
+        }
+      } catch (error) {
+        if (error?.response?.status === 401 || error?.response?.status === 403) break
+      }
+    }
+    if (backgroundConfirmations.get(signature) === job) backgroundConfirmations.delete(signature)
+  })().catch(error => {
+    console.warn('Falha durante a confirmação posterior:', error)
+    if (backgroundConfirmations.get(signature) === job) backgroundConfirmations.delete(signature)
+  })
+}
+
 // A sessão guarda apenas UUID + hash de uma operação não confirmada (nunca
 // produto, venda ou senha). Assim, atualizar a página não perde a chave.
 async function pendingStorageName(signature) {
@@ -108,7 +160,7 @@ async function findConfirmedPost(url, key) {
 /** Reenvio seguro: consulta a confirmação persistida antes de repetir um POST.
  * A chave fica pendente em caso de interrupção, não é descartada por timeout.
  */
-export async function postWithRecovery(url, payload) {
+export async function postWithRecovery(url, payload, { onConfirmedLater } = {}) {
   const signature = `${url}:${JSON.stringify(payload)}`
   const storedName = await pendingStorageName(signature)
   const oldKey = pendingFromStorage(storedName)
@@ -135,21 +187,25 @@ export async function postWithRecovery(url, payload) {
         }
       }
     }
-    pendingPosts.delete(signature)
-    setPendingStorage(storedName, null)
+    finishPendingOperation(signature, storedName)
     return response
   } catch (error) {
-    if (!isTransientFailure(error)) {
-      pendingPosts.delete(signature)
-      setPendingStorage(storedName, null)
+    if (isTransientFailure(error)) {
+      // A resposta pode ter sido perdida DEPOIS do commit. Não exibir um
+      // pop-up vermelho de erro: verificar a operação em segundo plano.
+      continueConfirmation(url, key, signature, storedName, onConfirmedLater)
+      const pending = new Error('Confirmação pendente no servidor.', { cause: error })
+      pending.code = 'COMERCIALIZA_WRITE_PENDING'
+      throw pending
     }
+    finishPendingOperation(signature, storedName)
     throw error
   }
 }
 
 export function writeErrorText(error, standardMessage) {
-  if (isTransientFailure(error)) {
-    return 'Não foi possível confirmar a operação. Ela pode ter sido salva! Confira a lista antes de refazer. Se repetir sem mudar os dados, o sistema reutiliza a mesma operação.'
-  }
+  // Estado desconhecido não equivale a erro de gravação. Não mostrar um
+  // alerta falso, especialmente quando o POST terminou com 201 no servidor.
+  if (isWritePending(error)) return ''
   return standardMessage(error)
 }

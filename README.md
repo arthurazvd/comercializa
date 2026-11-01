@@ -8,6 +8,22 @@ O repositório foi separado em:
 - `frontend/`: interface em Vue 3 + Vite.
 - `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
 
+## Atualização 07 — correção do aviso falso após HTTP 201 (31/10/2026)
+
+**Situação corrigida:** ao cadastrar categorias, produtos, vendas ou movimentos, o servidor podia retornar `201 Created` mas o frontend exibia “Não foi possível confirmar a operação”. O tratamento anterior também considerava exceções locais do JavaScript como se fossem erros da API.
+
+- `isTransientFailure` agora reconhece somente falhas do Axios (timeout, rede, 502/503/504); erros de renderização/atualização da interface não são mais classificados como falha de rede.
+- Um `201 Created` confirma a gravação. Se a atualização local falhar *depois do sucesso*, a interface avisa apenas que a operação foi salva e recarrega a lista, sem indicar que a API falhou.
+- Em timeout real sem confirmação, **não há mais popup vermelho de operação incerta**. A chave idempotente é preservada; a confirmação continua sendo consultada em segundo plano, sem reenviar o POST nessa fase. Se encontrada, a lista e os gráficos são atualizados e o feedback de sucesso é exibido.
+- Erros reais de API, como validação inválida (`400`), autenticação (`401`) e conflito (`409`), continuam visíveis ao usuário.
+- Os formulários são limpos após confirmação somente se não tiverem sido modificados enquanto a confirmação estava pendente.
+
+### Publicação da versão 07
+
+**Se a versão 06 já está publicada no backend Render, publique somente o frontend Cloudflare Pages atualizado.** Não há alteração de modelos nem migrações do banco nesta versão. O backend precisa conter o endpoint de confirmação `/api/operations/<chave>/` introduzido na versão 06. Execute `npm ci && npm run build` em `frontend/` no deploy e faça recarregamento completo no navegador após a publicação para descartar JavaScript antigo.
+
+**Verificação local:** 51 testes de frontend passaram, incluindo simulações de `201 Created`, perda de resposta HTTP, preservação da chave da operação e erro local após salvar. Sintaxe JavaScript validada. Não foi possível executar o build Vite nesta máquina por falta de dependências `node_modules` ou testar o sistema online no Render/Cloudflare.
+
 ## Atualização 06 — confirmação de operações, estorno e gráficos (31/10/2026)
 
 - **Confirmação pós-timeout:** o frontend consulta `GET /api/operations/<chave>/` para recuperar o resultado já registrado pelo backend. A mesma chave idempotente é preservada na sessão, mesmo após recarregar a página, sem armazenar dados de venda no navegador. Repetições de cadastros/vendas não devem duplicar estoque ou receita.

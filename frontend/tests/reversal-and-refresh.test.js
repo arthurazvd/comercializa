@@ -9,7 +9,7 @@ test('estorno tem confirmação, motivo, aviso financeiro e feedback', () => {
       'sale-reversal', 'O sistema registra o valor devolvido', 'refunded_amount']) {
     assert.ok(app.includes(marker), marker)
   }
-  assert.match(app, /postWithRecovery\(`sales\/\$\{saleToReverse\.value\.id\}\/cancel\//)
+  assert.match(app, /postWithRecovery\(`sales\/\$\{saleId\}\/cancel\//)
 })
 
 test('gráficos não dependem da aba em que uma venda ocorreu', () => {
