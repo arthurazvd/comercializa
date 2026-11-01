@@ -1,3 +1,16 @@
+## Comercializa V1.2.3 — Correção do npm e teste de movimentação (01/11/2026)
+
+- O lockfile apontava para `picocolors@1.2.0` (tarball inexistente no npm), embora seu hash fosse o da versão publicada `1.1.1`. Corrigidas a versão e a URL.
+- O `postcss@8.5.28` estava incorretamente registrado como dependente de `picocolors@^1.2.0`; a faixa correta é `^1.1.1`.
+- Novo teste estático `frontend/tests/lockfile-consistency.test.js` é executado pelo Actions **antes** do `npm ci` e também pelo `npm test`. Ele verifica versões e URLs de tarballs e evita regressões.
+- O teste Django de confirmação da movimentação agora envia `note`, que já era obrigatório para a API de estoque. Há também um teste garantindo que `note` ausente continua sendo rejeitado sem mexer no estoque nem registrar a operação.
+- **Não houve alteração nos modelos, nas regras do servidor ou na API.** Nenhuma migração nova.
+- Versão exibida no aplicativo: `1.2.3`. O código deve ser publicado no Cloudflare Pages; testes Django devem ser aprovados no GitHub antes de promover para produção.
+
+**Validação disponível:** testes Node do frontend e checagens estruturais dos arquivos. A instalação completa `npm ci`, o build Vite e a suíte Django precisam passar no GitHub Actions, pois este ambiente está sem acesso ao registry npm e não tem Django instalado.
+
+---
+
 ## Comercializa V1.2.2 — Integridade do pipeline e prevenção de duplicidade
 
 Esta correção mantém os recursos da V1.2.1 (fotos no catálogo e avisos temporários) e ajusta o pipeline do GitHub Actions:

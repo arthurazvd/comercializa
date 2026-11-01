@@ -103,6 +103,7 @@ def test_movimentacao_com_chave_registra_resposta_consultavel():
     key = 'stock-confirmation-1234567890'
     created = client.post('/api/stock-movements/', {
         'product': product.pk, 'delta': 3, 'justification': 'recebimento',
+        'note': 'Recebimento de 3 unidades para conferência da operação',
     }, format='json', HTTP_IDEMPOTENCY_KEY=key)
     confirmed = client.get(f'/api/operations/{key}/')
     assert created.status_code == 201
@@ -111,3 +112,19 @@ def test_movimentacao_com_chave_registra_resposta_consultavel():
     assert confirmed.data['data']['id'] == created.data['id']
     assert confirmed.data['path'] == '/api/stock-movements/'
     assert StockMovement.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_movimentacao_sem_observacao_continua_rejeitada_sem_gerar_operacao():
+    product = Product.objects.create(name='Pasta', sale_price=12, stock=6)
+    client = APIClient()
+    key = 'stock-no-note-validation-1234567890'
+    response = client.post('/api/stock-movements/', {
+        'product': product.pk, 'delta': 3, 'justification': 'recebimento',
+    }, format='json', HTTP_IDEMPOTENCY_KEY=key)
+    product.refresh_from_db()
+    assert response.status_code == 400
+    assert 'note' in response.data
+    assert product.stock == 6
+    assert StockMovement.objects.count() == 0
+    assert not IdempotencyRecord.objects.filter(key=key).exists()
