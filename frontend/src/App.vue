@@ -1,10 +1,10 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { api, postWithRecovery, writeErrorText, getAuthToken, saveAuthToken, clearAuthToken } from './api'
+import { api, postWithRecovery, writeErrorText, isTransientFailure, isWritePending, getAuthToken, saveAuthToken, clearAuthToken } from './api'
 import { createLatestLoader, upsertById, removeById } from './dataSync'
 import AppIcon from './components/AppIcon.vue'
 import DecisionChart from './components/DecisionChart.vue'
-import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, concentrationPercentage } from './charts'
+import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, rankingDonutRows, concentrationPercentage } from './charts'
 import { createToastController } from './toast'
 import { formatMoney, localDateISO, eligibleProducts, calculateCart, validCart } from './utils'
 import { defaultReportFilters, queryReport, filteredInventory, matchProductSearch, inventoryStatus } from './reportUtils'
@@ -37,6 +37,9 @@ const toastController = createToastController(value => { toast.value = value })
 const busy = ref(false)
 const loading = ref(true)
 const financeLoading = ref(false)
+const financeError = ref(false)
+const syncDelayed = ref(false)
+const writeConfirmationPending = ref(false)
 const search = ref('')
 const filter = ref('all')
 const stockSearch = ref('')
@@ -68,7 +71,6 @@ let cartItemSequence = 0
 const chartPeriod = ref('30d')
 const chartGrouping = ref('day')
 const chartStyle = ref('bar')
-const productChartStyle = ref('bar')
 const categoryChartStyle = ref('donut')
 const chartMetric = ref('revenue')
 const dashboardReport = ref(null)
@@ -93,7 +95,8 @@ const movementDirectionValid = computed(() => {
 })
 const movementFormValid = computed(() => Number.isInteger(Number(stockDelta.value)) && Number(stockDelta.value) !== 0 && !!stockProduct.value && !!stockNote.value && movementDirectionValid.value && (!showingReceiptExpiry.value || !!stockExpiry.value))
 const trendRows = computed(() => aggregateDaily(dashboardReport.value?.daily || [], chartGrouping.value, chartMetric.value === 'revenue' ? 'revenue' : 'quantity'))
-const rankedRows = computed(() => productChartData(dashboardReport.value?.products || [], chartMetric.value === 'revenue' ? 'revenue' : 'quantity'))
+const rankedRows = computed(() => rankingDonutRows(dashboardReport.value?.products || [], chartMetric.value === 'revenue' ? 'revenue' : 'quantity'))
+const rankedProducts = computed(() => [...(dashboardReport.value?.products || [])].sort((a, b) => Number(b[chartMetric.value === 'revenue' ? 'revenue' : 'quantity'] || 0) - Number(a[chartMetric.value === 'revenue' ? 'revenue' : 'quantity'] || 0)))
 const categoryRows = computed(() => productChartData(dashboardReport.value?.categories || [], chartMetric.value === 'revenue' ? 'revenue' : 'quantity'))
 const summaryInsights = computed(() => ({
   units: dashboardReport.value?.summary?.items_sold || 0,
@@ -188,6 +191,7 @@ function onUnauthorized() {
   categories.value = []
   sales.value = []
   movements.value = []
+  writeConfirmationPending.value = false
   loginError.value = 'Sua sessão expirou ou foi encerrada. Entre novamente.'
 }
 function onAppResume() {
@@ -262,12 +266,27 @@ async function signOut() {
 }
 function alertUser(text, type = 'success') { toastController.show(text, type) }
 function notifyWriteFailure(error) {
+  // Não declarar falha em uma escrita cujo resultado ainda está sendo confirmado.
+  // O aviso discreto é persistente: o operador não deve duplicar uma venda.
+  if (isWritePending(error) || isTransientFailure(error)) {
+    writeConfirmationPending.value = true
+    console.warn('Confirmação de operação pendente:', error)
+    return
+  }
   const message = writeErrorText(error, errorText)
-  // Com resposta perdida, a verificação continua em segundo plano; um aviso
-  // vermelho seria enganoso (a API pode já ter retornado 201 Created).
   if (message) alertUser(message, 'error')
 }
+function notifyReadFailure(error) {
+  // Oscilações temporárias do Render não geram pop-ups vermelhos a cada GET.
+  // Mantemos os dados já exibidos; operações sensíveis continuam com feedback.
+  console.warn('Consulta temporariamente indisponível:', error)
+  if (isTransientFailure(error) || Number(error?.response?.status) >= 500) syncDelayed.value = true
+  else if (error?.response?.status !== 401 && error?.code !== 'ERR_CANCELED') {
+    alertUser(errorText(error), 'error')
+  }
+}
 function applyConfirmedWrite(updateUI, response) {
+  writeConfirmationPending.value = false
   // O sucesso HTTP é definitivo. Uma falha reativa/local NÃO pode ser
   // apresentada como falha da gravação no servidor.
   try { updateUI(response) }
@@ -280,7 +299,7 @@ function applyConfirmedWrite(updateUI, response) {
 
 function errorText(error) {
   const data = error?.response?.data
-  if (!data) return 'Não foi possível conectar à API. Verifique se o backend está ativo.'
+  if (!data) return 'Não foi possível concluir a solicitação. Tente novamente.'
   if (typeof data === 'string') return data
   if (data.detail) return String(data.detail)
   return Object.entries(data).map(([field, value]) => `${field}: ${Array.isArray(value) ? value.join(', ') : typeof value === 'object' ? JSON.stringify(value) : value}`).join(' · ')
@@ -303,7 +322,7 @@ const resourceLoader = createLatestLoader(
     loadedAt.set(name, Date.now())
   },
 )
-async function refreshResources(names, { showError = false, force = false } = {}) {
+async function refreshResources(names, { force = false } = {}) {
   const required = [...new Set(names)].filter(name => resourceEndpoints[name] &&
     (force || !loadedAt.has(name) || Date.now() - loadedAt.get(name) > 25000))
   if (!required.length) return true
@@ -311,17 +330,18 @@ async function refreshResources(names, { showError = false, force = false } = {}
   const failed = results.filter(result => result.status === 'rejected')
   if (failed.length) {
     console.warn('Consultas não atualizadas:', failed.map(result => result.reason))
-    // Uma falha ao buscar estatísticas não deve ser anunciada como falha ao salvar.
-    if (showError && failed.length === results.length) {
-      alertUser('Não foi possível carregar os dados. Confira a conexão e tente atualizar.', 'error')
-    }
+    if (failed.some(result => isTransientFailure(result.reason) || Number(result.reason?.response?.status) >= 500)) syncDelayed.value = true
+  } else {
+    syncDelayed.value = false
   }
+  // Falhas de atualização de listas não se transformam em toasts: consultas
+  // automáticas são frequentes e dados anteriormente carregados seguem válidos.
   return !failed.length
 }
 async function loadAll() {
   loading.value = true
   // Carrega só o necessário para a primeira tela; histórico e estoque sob demanda.
-  try { await refreshResources(['products', 'categories', 'dashboard'], { showError: true }) }
+  try { await refreshResources(['products', 'categories', 'dashboard']) }
   finally { loading.value = false }
 }
 function invalidateResource(...names) {
@@ -337,7 +357,7 @@ function refreshCatalogInBackground() {
 }
 function refreshVisibleData() {
   const names = { dashboard: ['products', 'dashboard'], products: ['products', 'categories'], sales: ['sales', 'products'], inventory: ['products', 'stockOverview'], movements: ['movements', 'products'] }
-  void refreshResources(names[tab.value] || ['dashboard'], { force: true, showError: true })
+  void refreshResources(names[tab.value] || ['dashboard'], { force: true })
   if (tab.value === 'dashboard') void refreshDashboardCharts({ force: true })
 }
 function resetProduct() { productForm.value = blankProduct() }
@@ -371,7 +391,7 @@ async function toggleProduct(product) {
     products.value = upsertById(products.value, response.data)
     alertUser('Situação do produto atualizada.')
     refreshCatalogInBackground()
-  } catch (error) { alertUser(errorText(error), 'error') }
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 async function deleteProduct(product) {
@@ -384,7 +404,7 @@ async function deleteProduct(product) {
     if (productForm.value.id === product.id) resetProduct()
     alertUser('Produto excluído.')
     refreshCatalogInBackground()
-  } catch (error) { alertUser(errorText(error), 'error') }
+  } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
 async function addCategory() {
@@ -447,6 +467,7 @@ async function refreshDashboardCharts({ silent = false, force = false } = {}) {
     const result = await api.get(`reports/finance/?${queryReport(dates)}`, { signal: chartAbortController.signal })
     if (requestId === dashboardChartRequest) {
       dashboardReport.value = result.data
+      syncDelayed.value = false
       const now = Date.now()
       chartUpdatedAt.value = new Date(now).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
       chartCache.set(cacheKey, { data: result.data, at: now, time: chartUpdatedAt.value })
@@ -455,8 +476,11 @@ async function refreshDashboardCharts({ silent = false, force = false } = {}) {
     if (requestId === dashboardChartRequest && error?.code !== 'ERR_CANCELED') {
       chartError.value = true
       chartErrorTimer = window.setTimeout(() => { chartError.value = false }, 5500)
-      if (!silent) alertUser(errorText(error), 'error')
-      else console.warn('Gráfico não atualizado:', error)
+      // Falha temporária da consulta não é falha de operação, mesmo no clique
+      // manual em atualizar; mantém o relatório anterior sem toast de API.
+      console.warn('Gráfico não atualizado:', error)
+      if (isTransientFailure(error)) syncDelayed.value = true
+      // Erros são indicados no próprio painel apenas quando não há dados anteriores.
     }
   } finally { if (requestId === dashboardChartRequest) chartLoading.value = false }
 }
@@ -558,9 +582,14 @@ function openInventory(status = 'all') { tab.value = 'inventory'; stockFilter.va
 async function refreshFinance() {
   if (!reportFilters.value.start || !reportFilters.value.end || reportFilters.value.start > reportFilters.value.end) { alertUser('Corrija o intervalo de datas.', 'error'); return }
   financeLoading.value = true
-  try { finance.value = (await api.get(`reports/finance/?${queryReport(reportFilters.value)}`)).data }
-  catch (error) { alertUser(errorText(error), 'error') }
-  finally { financeLoading.value = false }
+  financeError.value = false
+  try {
+    finance.value = (await api.get(`reports/finance/?${queryReport(reportFilters.value)}`)).data
+    syncDelayed.value = false
+  } catch (error) {
+    financeError.value = true
+    notifyReadFailure(error)
+  } finally { financeLoading.value = false }
 }
 async function exportXlsx(type) {
   try {
@@ -570,7 +599,10 @@ async function exportXlsx(type) {
     const link = document.createElement('a'); const urlObject = URL.createObjectURL(blob)
     link.href = urlObject; link.download = type === 'stock' ? 'comercializa_estoque.xlsx' : 'comercializa_financeiro.xlsx'
     document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(urlObject), 1200)
-  } catch (error) { alertUser(errorText(error), 'error') }
+  } catch (error) {
+    console.warn('Exportação indisponível:', error)
+    alertUser('Não foi possível gerar o arquivo agora. Tente novamente.', 'error')
+  }
 }
 function shortDate(value) { return value ? `${value.substring(8, 10)}/${value.substring(5, 7)}/${value.substring(0, 4)}` : '—' }
 function dateTime(value) { return value ? new Date(value).toLocaleString('pt-BR') : '—' }
@@ -618,12 +650,14 @@ function labelStatus(p) {
       <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
       <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
     </nav>
-    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades</small></div>
+    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Sincronização pendente' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades</small></div>
   </aside>
   <main class="main-content">
     <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
     <Transition name="toast"><div v-if="toast" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer"></span></div></Transition>
+    <div v-if="writeConfirmationPending" class="pending-write-banner" role="status"><AppIcon name="clock" :size="16" /><span>Uma operação ainda está sendo confirmada. Confira o histórico antes de repeti-la.</span><button type="button" @click="refreshVisibleData">Consultar dados</button></div>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
+    <div v-else-if="!dashboard && tab === 'dashboard'" class="panel data-empty-state" role="status">Os dados ainda não foram carregados. <button class="btn secondary" type="button" @click="refreshVisibleData">Atualizar dados</button></div>
 
     <section v-if="tab === 'dashboard' && dashboard">
       <header class="page-header"><div><span class="eyebrow">DASHBOARD / PERFORMANCE</span><h1>Visão geral<span class="title-accent">.</span></h1><p>Uma visão clara das vendas, do estoque e do que merece atenção.</p></div><button class="btn secondary" @click="openModal('finance')"><AppIcon name="chart" :size="17" /> Explorar relatórios</button></header>
@@ -637,14 +671,14 @@ function labelStatus(p) {
         <div><span class="eyebrow">ANÁLISE GERENCIAL</span><h2>Explore os dados de vendas</h2><p>Altere período, agrupamento e visualização. Receita considera os descontos, mas não representa lucro.</p></div>
         <div class="chart-controls"><label>Período<select v-model="chartPeriod"><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="90d">Últimos 90 dias</option><option value="12m">Últimos 12 meses</option></select></label><label>Indicador<select v-model="chartMetric"><option value="revenue">Receita (R$)</option><option value="quantity">Unidades vendidas</option></select></label><label>Agrupar<select v-model="chartGrouping"><option value="day">Por dia</option><option value="week">Por semana</option><option value="month">Por mês</option></select></label><small v-if="chartLoading" class="chart-refreshing">Atualizando gráficos…</small></div>
       </div>
-      <div v-if="chartError" class="chart-connection-warning" role="status"><AppIcon name="alert" :size="16" /> {{ dashboardReport ? 'Não foi possível atualizar agora. Exibindo os últimos dados recebidos.' : 'Não foi possível carregar os gráficos.' }} <button class="btn secondary" @click="refreshDashboardCharts({ force: true })">Tentar novamente</button></div>
+      <div v-if="chartError && !dashboardReport" class="chart-connection-warning" role="status">As análises ainda não estão disponíveis. <button class="btn secondary" @click="refreshDashboardCharts({ force: true })">Atualizar gráficos</button></div>
       <div v-if="dashboardReport" class="chart-update-line"><span><AppIcon name="check" :size="14" /> Atualizado às {{ chartUpdatedAt }} <span v-if="chartLoading"> · Sincronizando…</span></span><button type="button" class="btn secondary chart-reload" :disabled="chartLoading" @click="refreshDashboardCharts({ force: true })"><AppIcon name="refresh" :size="15" /> Atualizar gráficos</button></div>
       <div v-if="chartLoading && !dashboardReport" class="panel">Carregando análises…</div>
       <template v-if="dashboardReport">
         <div class="insight-strip"><div><span>Unidades vendidas</span><strong>{{ summaryInsights.units }}</strong></div><div><span>Produtos diferentes vendidos</span><strong>{{ summaryInsights.activeItems }}</strong></div><div><span>Maior categoria no faturamento</span><strong>{{ summaryInsights.concentration }}%</strong><small>{{ summaryInsights.topCategory }}</small></div><div><span>Ticket médio do período</span><strong>{{ money(dashboardReport.summary.average_ticket) }}</strong></div></div>
         <div class="grid-2 dashboard-top">
           <article class="panel chart-panel"><div class="panel-heading"><div><span class="eyebrow">SÉRIE TEMPORAL</span><h2>Evolução das vendas</h2></div><select v-model="chartStyle" aria-label="Tipo de gráfico de evolução"><option value="bar">Barras</option><option value="line">Linhas</option><option value="area">Área</option><option value="donut">Rosca (participação)</option></select></div><DecisionChart :rows="trendRows" :type="chartStyle" :currency="chartMetric === 'revenue'" label="Evolução das vendas no período selecionado" /></article>
-          <article class="panel chart-panel"><div class="panel-heading"><div><span class="eyebrow">RANKING</span><h2>Itens mais vendidos</h2></div><select v-model="productChartStyle" aria-label="Tipo de gráfico dos mais vendidos"><option value="bar">Barras</option><option value="line">Linhas</option><option value="donut">Rosca</option></select></div><DecisionChart :rows="rankedRows" :type="productChartStyle" :currency="chartMetric === 'revenue'" label="Produtos mais vendidos" /><div class="top-product-list"><div v-for="(p, i) in dashboardReport.products.slice(0, 5)" :key="p.id" class="rank-row"><span class="rank-index">{{ String(i + 1).padStart(2, '0') }}</span><strong>{{ p.name }}</strong><span class="quantity">{{ p.quantity }} un.</span></div></div></article>
+          <article class="panel chart-panel top-products-chart"><div class="panel-heading"><div><span class="eyebrow">RANKING</span><h2>Itens mais vendidos</h2></div></div><DecisionChart :rows="rankedRows" type="donut" :currency="chartMetric === 'revenue'" label="Produtos mais vendidos" /><div class="top-product-list"><div v-for="(p, i) in rankedProducts.slice(0, 5)" :key="p.id" class="rank-row"><span class="rank-index">{{ String(i + 1).padStart(2, '0') }}</span><strong>{{ p.name }}</strong><span class="quantity">{{ p.quantity }} un.</span></div></div></article>
         </div>
         <article class="panel chart-panel category-analysis"><div class="panel-heading"><div><span class="eyebrow">MIX COMERCIAL</span><h2>Participação por categoria</h2></div><select v-model="categoryChartStyle" aria-label="Tipo de gráfico por categoria"><option value="donut">Rosca</option><option value="bar">Barras</option><option value="line">Linhas</option></select></div><DecisionChart :rows="categoryRows" :type="categoryChartStyle" :currency="chartMetric === 'revenue'" label="Distribuição das vendas por categoria" /></article>
       </template>
@@ -696,7 +730,7 @@ function labelStatus(p) {
   </main>
 
   <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
-    <template v-if="modal === 'finance'"><div class="modal-body"><p class="help-text" style="margin-bottom:18px">Receita após descontos (não equivale a lucro líquido). Filtre o intervalo e explore produtos e categorias.</p><form class="report-filters" @submit.prevent="refreshFinance"><label>Início<input v-model="reportFilters.start" type="date" required /></label><label>Fim<input v-model="reportFilters.end" type="date" required /></label><label>Categoria<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar' }}</button></form><div class="report-actions"><button type="button" class="btn secondary" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button><button type="button" class="btn secondary" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button><button class="btn secondary" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel</button></div><div v-if="finance" class="report-content"><div class="report-summary"><div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div><div><small>Vendas</small><strong>{{ finance.summary.sales_count }}</strong></div><div><small>Unidades vendidas</small><strong>{{ finance.summary.items_sold }}</strong></div><div><small>Ticket médio</small><strong>{{ money(finance.summary.average_ticket) }}</strong></div></div><div class="report-explanation">Bruto: {{ money(finance.summary.gross) }} · Descontos atribuídos: {{ money(finance.summary.discounts) }}. A análise considera somente os filtros aplicados.</div><div class="report-grid"><div><h3>Desempenho por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades</small></div><b>{{ money(c.revenue) }}</b></div></div><div><h3>Produtos vendidos</h3><div v-if="!finance.products.length" class="empty">Sem itens vendidos.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.category }} · {{ p.quantity }} un.</small></div><b>{{ money(p.revenue) }}</b></div></div></div><h3 style="margin-top:24px">Evolução por dia</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>{{ d.quantity }} unidades</span><strong>{{ money(d.revenue) }}</strong></div></div></div></template>
+    <template v-if="modal === 'finance'"><div class="modal-body"><p class="help-text" style="margin-bottom:18px">Receita após descontos (não equivale a lucro líquido). Filtre o intervalo e explore produtos e categorias.</p><form class="report-filters" @submit.prevent="refreshFinance"><label>Início<input v-model="reportFilters.start" type="date" required /></label><label>Fim<input v-model="reportFilters.end" type="date" required /></label><label>Categoria<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar' }}</button></form><div class="report-actions"><button type="button" class="btn secondary" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button><button type="button" class="btn secondary" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button><button class="btn secondary" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel</button></div><div v-if="financeError && !finance" class="report-unavailable" role="status">Relatório indisponível no momento. <button type="button" class="btn secondary" @click="refreshFinance">Tentar novamente</button></div><div v-if="finance" class="report-content"><div class="report-summary"><div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div><div><small>Vendas</small><strong>{{ finance.summary.sales_count }}</strong></div><div><small>Unidades vendidas</small><strong>{{ finance.summary.items_sold }}</strong></div><div><small>Ticket médio</small><strong>{{ money(finance.summary.average_ticket) }}</strong></div></div><div class="report-explanation">Bruto: {{ money(finance.summary.gross) }} · Descontos atribuídos: {{ money(finance.summary.discounts) }}. A análise considera somente os filtros aplicados.</div><div class="report-grid"><div><h3>Desempenho por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades</small></div><b>{{ money(c.revenue) }}</b></div></div><div><h3>Produtos vendidos</h3><div v-if="!finance.products.length" class="empty">Sem itens vendidos.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.category }} · {{ p.quantity }} un.</small></div><b>{{ money(p.revenue) }}</b></div></div></div><h3 style="margin-top:24px">Evolução por dia</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>{{ d.quantity }} unidades</span><strong>{{ money(d.revenue) }}</strong></div></div></div></template>
     <template v-else-if="modal === 'sale-reversal' && saleToReverse">
       <form class="reversal-form" @submit.prevent="confirmReversal">
         <div class="modal-body">

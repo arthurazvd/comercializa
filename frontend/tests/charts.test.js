@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, concentrationPercentage } from '../src/charts.js'
+import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, rankingDonutRows, concentrationPercentage } from '../src/charts.js'
 import { eligibleProducts, validCart } from '../src/utils.js'
 
 test('campo vazio apresenta produtos alfabeticamente e ignora sem saldo vendável', () => {
@@ -45,4 +45,19 @@ test('ranking e concentração de categorias ignoram entradas vazias', () => {
   assert.deepEqual(productChartData(rows, 'revenue').map(x => x.label), ['Pote', 'Boné'])
   assert.equal(concentrationPercentage([{ revenue: 20 }, { revenue: 80 }]), 80)
   assert.equal(concentrationPercentage([]), 0)
+})
+
+
+test('rosca do ranking cobre todos os itens com cinco maiores e Outros', () => {
+  const data = [
+    { name: 'A', quantity: 6 }, { name: 'B', quantity: 5 },
+    { name: 'C', quantity: 4 }, { name: 'D', quantity: 3 },
+    { name: 'E', quantity: 2 }, { name: 'F', quantity: 1 },
+    { name: 'G', quantity: 7 },
+  ]
+  const rows = rankingDonutRows(data)
+  assert.deepEqual(rows.map(x => x.label), ['G', 'A', 'B', 'C', 'D', 'Outros'])
+  assert.equal(rows.at(-1).value, 3)
+  assert.equal(rows.reduce((sum, x) => sum + x.value, 0), 28)
+  assert.deepEqual(rankingDonutRows([], 'quantity'), [])
 })

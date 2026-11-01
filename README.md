@@ -1,3 +1,11 @@
+## Atualização 08 — ranking em rosca e avisos de conexão (01/11/2026)
+
+- **Itens mais vendidos:** visualização fixa em rosca, sem seletor de tipo nem barra horizontal. Os demais gráficos conservam seus controles.
+- **Consultas automáticas e gráficos:** oscilações temporárias da API não produzem toasts vermelhos repetidos. Os dados anteriormente carregados permanecem disponíveis e a sincronização continua sendo tentada.
+- **Operações com resposta não confirmada:** em vez de afirmar sucesso ou exibir erro genérico de conexão, aparece um aviso discreto e persistente para o usuário conferir o histórico antes de repetir a ação. Falhas reais de validação continuam visíveis.
+- **Relatórios e exportações:** mensagens de erro específicas e botão de nova tentativa quando aplicável; não se mascara uma exportação que falhou.
+- Esta versão modifica apenas o frontend. Se o Render já estiver na versão 06/07, não é necessário migrar o banco para esta atualização.
+
 # Comercializa
 
 Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércios.

@@ -91,9 +91,9 @@ test('erro na atualização da tela após HTTP 201 não produz toast de falha de
   const end = appSource.indexOf('function errorText(', start)
   const notifications = []
   let refreshes = 0
-  const createHandler = new Function('console', 'alertUser', 'refreshVisibleData',
+  const createHandler = new Function('console', 'alertUser', 'refreshVisibleData', 'writeConfirmationPending',
     `${appSource.slice(start, end)}; return applyConfirmedWrite`)
-  const handle = createHandler({ error() {} }, (text, type = 'success') => notifications.push({ text, type }), () => { refreshes += 1 })
+  const handle = createHandler({ error() {} }, (text, type = 'success') => notifications.push({ text, type }), () => { refreshes += 1 }, { value: true })
   handle(() => { throw new TypeError('Falha no componente após HTTP 201') }, { status: 201, data: { id: 1 } })
   assert.equal(notifications.length, 1)
   assert.equal(notifications[0].type, 'success')
