@@ -97,3 +97,10 @@ Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-
 - `frontend/tests/branding.test.js`: testa atualização do copyright no novo ano, caminhos e viewBox das cinco variações SVG, favicon sem wordmark, seleção responsiva da logo e presença do footer.
 - Executar: `cd frontend && npm test && npm run build`.
 - Inspeção visual manual de desktop/celular, dois temas e favicon conforme checklist em [Iteração 03](19-identidade-responsiva-footer-2026-10-30.md).
+
+## Escopo e execução V1.2.0
+
+- Frontend: `cd frontend && npm ci && npm test && npm run build`. Os testes Node isolam lógica do carrinho, normalização de nomes/limites de imagem, contrato de integração, indicadores, avisos e elementos declarados de UI.
+- Backend: `cd backend && pip install -r requirements.txt && pytest`. Os novos testes em `tests/test_product_images.py` verificam upload/download JPEG, nome SKU/ID, substituição, exclusão, limite, assinatura inválida, dimensões, autenticação e exclusão em cascata.
+- Integração manual obrigatória: testar em câmera real Android/iOS, foto do dispositivo, troca de tema, sessão autenticada, edição de SKU, perda da conexão entre criar produto e subir foto, migração `0007` e leitura após redeploy/sleep no Render.
+- **Não há teste E2E/browser automatizado abrangente nem medição de cobertura por campo.** Cenários de campos cobertos e lacunas estão em `21-matriz-rastreabilidade-campos.md`; não afirmar 100% de cobertura só porque todos os testes executaram.

@@ -51,3 +51,10 @@
 - [ ] paginação, filtros de período, fornecedores e entradas de compra.
 
 Detalhes e evidências: [17-melhorias-2026-10-29.md](17-melhorias-2026-10-29.md).
+
+## Melhorias futuras além da V1.2.0
+
+- Migrar `ProductImage.data` de banco relacional para object storage S3-compatible (como R2/Neon Object Storage), com backup e migração dos arquivos existentes, caso o volume supere a quota do PostgreSQL.
+- Implementar testes browser E2E (Playwright) cobrindo navegação por teclado, câmera simulada, progressão dos toasts e carrinho.
+- Cobrir cenários de múltiplos operadores e instabilidade no upload de foto; monitorar taxas de falha, ocupação de banco e tempos de consulta.
+- Integração bancária de reembolso (hoje estorno apenas interno).

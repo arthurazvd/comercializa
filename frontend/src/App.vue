@@ -5,6 +5,8 @@ import { actionableWriteMessage } from './operationFeedback'
 import { createLatestLoader, upsertById, removeById } from './dataSync'
 import AppIcon from './components/AppIcon.vue'
 import NumericField from './components/NumericField.vue'
+import ProductThumbnail from './components/ProductThumbnail.vue'
+import { normalizeProductPhoto } from './imageProcessing'
 import { addOrIncrementCartItem } from './cart'
 import { APP_VERSION } from './version'
 import DecisionChart from './components/DecisionChart.vue'
@@ -59,6 +61,50 @@ const categoryName = ref('')
 const reportFilters = ref(defaultReportFilters())
 const blankProduct = () => ({ perishable: false, id: null, name: '', category: '', sku: '', purchase_price: 0, sale_price: 0, stock: 0, minimum_stock: 0, expiration_date: '', active: true })
 const productForm = ref(blankProduct())
+const productPhoto = ref(null)
+const photoPreviewUrl = ref('')
+const photoBusy = ref(false)
+const photoError = ref('')
+const removePhoto = ref(false)
+const photoGalleryInput = ref(null)
+const photoCameraInput = ref(null)
+let photoPickSequence = 0
+function clearPhotoState() {
+  ++photoPickSequence
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+  photoPreviewUrl.value = ''
+  productPhoto.value = null
+  removePhoto.value = false
+  photoError.value = ''
+  photoBusy.value = false
+}
+async function selectPhoto(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  const sequence = ++photoPickSequence
+  photoBusy.value = true
+  photoError.value = ''
+  try {
+    const processed = await normalizeProductPhoto(file, productForm.value.sku || productForm.value.id)
+    if (sequence !== photoPickSequence) return
+    if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+    photoPreviewUrl.value = URL.createObjectURL(processed)
+    productPhoto.value = processed
+    removePhoto.value = false
+  } catch (error) {
+    if (sequence === photoPickSequence) photoError.value = error.message || 'Falha ao preparar fotografia.'
+  } finally { if (sequence === photoPickSequence) photoBusy.value = false }
+}
+function discardPhoto() {
+  ++photoPickSequence
+  if (photoPreviewUrl.value) URL.revokeObjectURL(photoPreviewUrl.value)
+  photoPreviewUrl.value = ''
+  productPhoto.value = null
+  removePhoto.value = Boolean(productForm.value.id && productForm.value.has_image)
+  photoBusy.value = false
+  photoError.value = ''
+}
 const saleForm = ref({ items: [], discount: 0 })
 const saleToReverse = ref(null)
 const reversalReason = ref('Devolução integral')
@@ -171,6 +217,7 @@ onUnmounted(() => {
   window.removeEventListener('online', onAppResume)
   document.removeEventListener('visibilitychange', onAppResume)
   toastController.dispose()
+  clearPhotoState()
   window.clearTimeout(saleSearchBlurTimer)
   document.body.style.overflow = ''
 })
@@ -265,6 +312,7 @@ async function signOut() {
   dashboardReport.value = null
 }
 function alertUser(text, type = 'success') { toastController.show(text, type) }
+function closeToastAtProgressEnd(id) { if (toast.value?.id === id) toastController.dismiss() }
 function notifyWriteFailure(error) {
   // Sem HTTP 2xx não afirmamos sucesso nem fracasso: a gravação pode ter
   // ocorrido no servidor. Nunca mostrar o erro genérico de conexão no PDV.
@@ -360,28 +408,61 @@ function refreshVisibleData() {
   void refreshResources(names[tab.value] || ['dashboard'], { force: true })
   if (tab.value === 'dashboard') void refreshDashboardCharts({ force: true })
 }
-function resetProduct() { productForm.value = blankProduct() }
-function editProduct(product) { productForm.value = { ...product, category: product.category ?? '', expiration_date: product.expiration_date ?? '' }; tab.value = 'products'; window.scrollTo({ top: 0, behavior: 'smooth' }) }
+function resetProduct() { clearPhotoState(); productForm.value = blankProduct() }
+function editProduct(product) {
+  clearPhotoState()
+  productForm.value = { ...product, category: product.category ?? '', expiration_date: product.expiration_date ?? '' }
+  tab.value = 'products'
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 async function saveProduct() {
-  if (busy.value) return
+  if (busy.value || photoBusy.value) return
   busy.value = true
-  const payload = { ...productForm.value, category: productForm.value.category || null, sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
-  const submittedForm = JSON.stringify(productForm.value)
-  const onSaved = response => {
-    invalidateResource('products')
-    products.value = upsertById(products.value, response.data)
-    if (JSON.stringify(productForm.value) === submittedForm) resetProduct()
-    alertUser(payload.id ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
-    refreshCatalogInBackground()
-  }
+  photoError.value = ''
+  const payload = { ...productForm.value, category: productForm.value.category || null,
+    sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
+  const wasEditing = Boolean(payload.id)
+  let saved = null
   try {
-    const response = payload.id
+    const response = wasEditing
       ? await api.put(`products/${payload.id}/`, payload)
       : await postWithRecovery('products/', payload)
-    applyConfirmedWrite(onSaved, response)
-  } catch (error) { notifyWriteFailure(error) }
-  finally { busy.value = false }
+    saved = response.data
+  } catch (error) {
+    notifyWriteFailure(error)
+    busy.value = false
+    return
+  }
+  // Uma eventual falha na foto NÃO significa falha no cadastro do produto.
+  // Em novos cadastros, conservamos o id para tentar a foto via edição, sem duplicar.
+  productForm.value.id = saved.id
+  try {
+    if (productPhoto.value) {
+      const form = new FormData()
+      form.append('image', productPhoto.value, productPhoto.value.name)
+      const upload = await api.put(`products/${saved.id}/image/`, form)
+      saved = { ...saved, ...upload.data }
+    } else if (removePhoto.value && wasEditing) {
+      const removed = await api.delete(`products/${saved.id}/image/`)
+      saved = { ...saved, ...removed.data }
+    }
+  } catch (error) {
+    photoError.value = `Produto salvo, mas a foto não foi atualizada. ${errorText(error)}`
+    products.value = upsertById(products.value, saved)
+    invalidateResource('products')
+    refreshCatalogInBackground()
+    alertUser('Produto salvo. Confira a foto antes de continuar.', 'error')
+    busy.value = false
+    return
+  }
+  products.value = upsertById(products.value, saved)
+  invalidateResource('products')
+  resetProduct()
+  alertUser(wasEditing ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
+  refreshCatalogInBackground()
+  busy.value = false
 }
+
 async function toggleProduct(product) {
   if (busy.value) return
   busy.value = true
@@ -658,7 +739,7 @@ function labelStatus(p) {
   </aside>
   <main class="main-content">
     <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
-    <Transition name="toast"><div v-if="toast" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer"></span></div></Transition>
+    <Transition name="toast"><div v-if="toast" :key="toast.id" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer" aria-hidden="true" @animationend="closeToastAtProgressEnd(toast.id)"></span></div></Transition>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
     <div v-else-if="!dashboard && tab === 'dashboard'" class="panel data-empty-state" role="status">Os dados ainda não foram carregados. <button class="btn secondary" type="button" @click="refreshVisibleData">Atualizar dados</button></div>
 
@@ -692,8 +773,29 @@ function labelStatus(p) {
     </section>
 
     <section v-if="tab === 'products'"><header class="page-header"><div><span class="eyebrow">CATÁLOGO / CADASTROS</span><h1>Produtos<span class="title-accent">.</span></h1><p>Cadastre e organize os itens de sua loja.</p></div><span class="header-count">{{ products.length }} itens cadastrados</span></header>
-      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<NumericField v-model="productForm.purchase_price" label="preço de compra" :min="0" step="0.01" :button-step="1" required /></label><label>Preço de venda<NumericField v-model="productForm.sale_price" label="preço de venda" :min="0" step="0.01" :button-step="1" required /></label></div><div class="form-row"><label>Saldo inicial / atual<NumericField v-model="productForm.stock" label="saldo de estoque" :min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<NumericField v-model="productForm.minimum_stock" label="estoque mínimo" :min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
-      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><div class="product-avatar"><AppIcon name="package" /></div><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
+      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<NumericField v-model="productForm.purchase_price" label="preço de compra" :min="0" step="0.01" :button-step="1" required /></label><label>Preço de venda<NumericField v-model="productForm.sale_price" label="preço de venda" :min="0" step="0.01" :button-step="1" required /></label></div><div class="form-row"><label>Saldo inicial / atual<NumericField v-model="productForm.stock" label="saldo de estoque" :min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<NumericField v-model="productForm.minimum_stock" label="estoque mínimo" :min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label>
+            <div class="product-photo-editor">
+              <div class="photo-preview">
+                <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Prévia da nova fotografia do produto" />
+                <ProductThumbnail v-else :product-id="productForm.id" :updated-at="removePhoto ? null : productForm.image_updated_at" :name="productForm.name" size="editor" />
+              </div>
+              <div class="photo-editor-actions">
+                <strong>Foto do produto <span class="photo-optional">(opcional)</span></strong>
+                <small>JPEG padronizado automaticamente em 800 × 800 px ou menos, até 100 KB. Foto e galeria.</small>
+                <div class="photo-buttons">
+                  <button type="button" class="btn secondary" :disabled="busy || photoBusy" @click="photoGalleryInput?.click()">Escolher da galeria</button>
+                  <button type="button" class="btn secondary" :disabled="busy || photoBusy" @click="photoCameraInput?.click()">Tirar foto</button>
+                  <button v-if="productPhoto || (productForm.id && productForm.has_image && !removePhoto)" type="button" class="btn photo-remove" :disabled="busy || photoBusy" @click="discardPhoto">Remover foto</button>
+                </div>
+                <input ref="photoGalleryInput" class="visually-hidden-input" type="file" accept="image/*" aria-label="Selecionar imagem na galeria" @change="selectPhoto" />
+                <input ref="photoCameraInput" class="visually-hidden-input" type="file" accept="image/*" capture="environment" aria-label="Fotografar produto" @change="selectPhoto" />
+                <small v-if="productPhoto" class="photo-ready">Pronta: {{ productPhoto.name }} · {{ (productPhoto.size / 1024).toFixed(1) }} KB</small>
+                <small v-if="photoBusy">Preparando e compactando imagem…</small>
+                <small v-if="removePhoto && !productPhoto">A foto atual será removida ao salvar.</small>
+                <p v-if="photoError" class="photo-error" role="alert">{{ photoError }}</p>
+              </div>
+            </div><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy || photoBusy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
+      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><ProductThumbnail :product-id="p.id" :updated-at="p.image_updated_at" :name="p.name" /><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small><div class="inline-actions"><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></div></article></div>
     </section>
 
     <section v-if="tab === 'sales'">

@@ -5,9 +5,20 @@ Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércio
 O repositório contém `backend/` (Django/DRF), `frontend/` (Vue/Vite) e `docs/` (documentação).
 
 
+## Funcionalidade de fotos de produtos — V1.2.0 (01/11/2026)
+
+Na tela **Produtos**, agora é possível escolher foto da galeria ou tirar foto com a câmera, visualizar a prévia, substituir ou remover durante a edição. O navegador a converte em JPEG quadrado (fundo branco, proporção preservada), com até **100 KB** e nome por **SKU** (ou ID quando ausente). Fotos aparecem como miniaturas no catálogo e são consultadas de forma autenticada sob demanda.
+
+**Deploy obrigatório de frontend E backend:** executar migração `0007_product_image` no banco Neon (o `backend/build.sh` já roda `migrate`) e publicar o Vue atualizado no Cloudflare Pages. Instalar a dependência Python `Pillow` no Render. Backup do banco antes da migração. Em caso de falha da foto após salvar o produto, ele permanece cadastrado e a interface preserva o ID para reenvio.
+
+**Armazenamento:** fotos são guardadas no banco Neon, nunca no disco efêmero do Render. Controle a quota: até 100 KB por imagem parece pouco, mas 10 mil imagens podem ultrapassar 1 GB. Para catálogos grandes, recomenda-se storage de objetos antes de uma importação massiva. Consulte [arquitetura](docs/04-arquitetura.md), [casos de uso](docs/03-casos-de-uso.md), [API](docs/22-contrato-api-fotos.md) e [matriz de testes](docs/21-matriz-rastreabilidade-campos.md).
+
+**Notificações:** toast desaparece ao fim da animação de 1,5 segundo, com fallback por timer e opção de dispensa manual. A correção preserva erros HTTP de validação e evita mensagens falsas de cadastro.
+
+
 ## Atualização 1.1.0 — interface e vendas (01/11/2026)
 
-- **Versionamento SemVer:** versão `1.1.0` no rodapé e no `package.json`. As próximas correções podem seguir `1.1.1`, `1.1.2` etc.; novas funcionalidades podem usar `1.2.0`.
+- **Versionamento SemVer:** versão `1.1.0` no rodapé e no `package.json`. As próximas correções podem seguir `1.2.0`, `1.1.2` etc.; novas funcionalidades podem usar `1.2.0`.
 - **Vendas:** selecionar e incluir novamente o mesmo item soma a quantidade à linha original, sem duplicar produtos. Respeita o estoque vendável e os lotes disponíveis.
 - **Mobile:** controles `−` e `+` para campos numéricos (quantidade, estoque, preços e desconto). O campo digitável continua disponível.
 - **Notificações:** duração de 1.500 ms para sucessos e erros, com fechamento manual opcional.

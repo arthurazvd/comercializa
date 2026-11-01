@@ -9,7 +9,7 @@ test('toast desaparece após 1,5 segundo', () => {
   const scheduler = { setTimeout: callback => { jobs.set(++id, callback); return id }, clearTimeout: key => jobs.delete(key) }
   const toast = createToastController(value => updates.push(value), 1500, scheduler)
   toast.show('Venda salva')
-  assert.deepEqual(updates.at(-1), { text: 'Venda salva', type: 'success' })
+  assert.deepEqual(updates.at(-1), { text: 'Venda salva', type: 'success', id: 1 })
   assert.equal(jobs.size, 1)
   jobs.values().next().value()
   assert.equal(updates.at(-1), null)
@@ -24,7 +24,7 @@ test('novo toast reinicia cronômetro e erros são tratados igualmente', () => {
   toast.show('Cadastrado')
   toast.show('Estoque insuficiente', 'error')
   assert.equal(jobs.size, 1)
-  assert.deepEqual(updates.at(-1), { text: 'Estoque insuficiente', type: 'error' })
+  assert.deepEqual(updates.at(-1), { text: 'Estoque insuficiente', type: 'error', id: 2 })
   toast.dismiss()
   assert.equal(jobs.size, 0)
   assert.equal(updates.at(-1), null)

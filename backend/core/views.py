@@ -1,13 +1,21 @@
 from django.db.models.deletion import ProtectedError
+from django.http import HttpResponse
+from django.utils import timezone
+from io import BytesIO
+import re
+import warnings
+from PIL import Image, UnidentifiedImageError
+from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser
+
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 from rest_framework import generics, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Category, Product, Sale, StockMovement, StockLot, StockLotAllocation, IdempotencyRecord
+from .models import Category, Product, ProductImage, Sale, StockMovement, StockLot, StockLotAllocation, IdempotencyRecord
 from .idempotency import IdempotentCreateMixin
 from .serializers import (
     CategorySerializer, ProductSerializer, SaleSerializer, SaleCreateSerializer,
@@ -25,6 +33,56 @@ class CategoryViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
 class ProductViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     queryset = Product.objects.select_related("category").prefetch_related("lots").all()
     serializer_class = ProductSerializer
+
+    @action(detail=True, methods=['get', 'put', 'delete'], url_path='image', parser_classes=[MultiPartParser])
+    def image(self, request, pk=None):
+        product = self.get_object()
+        if request.method == 'GET':
+            record = get_object_or_404(ProductImage, product=product)
+            response = HttpResponse(bytes(record.data), content_type='image/jpeg')
+            response['Cache-Control'] = 'private, max-age=120'
+            response['X-Content-Type-Options'] = 'nosniff'
+            return response
+        if request.method == 'DELETE':
+            with transaction.atomic():
+                ProductImage.objects.filter(product=product).delete()
+                Product.objects.filter(pk=product.pk).update(image_updated_at=None)
+            return Response({'has_image': False, 'image_updated_at': None})
+
+        photo = request.FILES.get('image')
+        if photo is None:
+            return Response({'image': ['Envie uma imagem no campo image.']}, status=400)
+        # A normalização é feita no navegador, mas o servidor valida novamente.
+        # Não confiar apenas no content-type informado pelo cliente.
+        if photo.size > 102400 or photo.size == 0:
+            return Response({'image': ['A imagem deve ter no máximo 100 KB.']}, status=400)
+        data = photo.read(102401)
+        if len(data) > 102400 or not data.startswith(b'\xff\xd8\xff'):
+            return Response({'image': ['Envie um arquivo JPEG válido de até 100 KB.']}, status=400)
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter('error', Image.DecompressionBombWarning)
+                with Image.open(BytesIO(data)) as check:
+                    if check.format != 'JPEG' or max(check.size) > 4096:
+                        raise ValueError('Formato ou dimensões inválidas')
+                    check.verify()
+        except (UnidentifiedImageError, ValueError, OSError, Image.DecompressionBombWarning, Image.DecompressionBombError):
+            return Response({'image': ['JPEG inválido ou dimensões acima de 4096 pixels.']}, status=400)
+        code = re.sub(r'[^A-Za-z0-9_-]+', '-', product.sku or str(product.pk)).strip('-')[:70] or str(product.pk)
+        filename = f'{code}.jpg'
+        with transaction.atomic():
+            ProductImage.objects.update_or_create(product=product, defaults={
+                'data': data, 'size': len(data), 'filename': filename,
+            })
+            updated_at = timezone.now()
+            Product.objects.filter(pk=product.pk).update(image_updated_at=updated_at)
+        return Response({'has_image': True, 'image_updated_at': updated_at, 'filename': filename, 'size': len(data)})
+
+    def perform_update(self, serializer):
+        product = serializer.save()
+        if product.image_updated_at:
+            code = re.sub(r'[^A-Za-z0-9_-]+', '-', product.sku or str(product.pk)).strip('-')[:70] or str(product.pk)
+            ProductImage.objects.filter(product_id=product.pk).update(filename=f'{code}.jpg')
 
     def destroy(self, request, *args, **kwargs):
         try:

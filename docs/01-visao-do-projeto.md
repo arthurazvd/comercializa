@@ -142,3 +142,11 @@ A especificação detalhada encontra-se em [02-requisitos.md](02-requisitos.md).
 | R04 | Crescimento do escopo comprometer as entregas do semestre. | Média | Alto | Manter backlog priorizado e respeitar o escopo de cada iteração. |
 | R05 | Divergências entre frontend e API causarem falhas de integração. | Média | Médio | Manter contratos claros e testes de API/integração. |
 | R06 | Dependência excessiva de dados históricos limitar análises futuras. | Baixa | Médio | Evoluir funcionalidades analíticas conforme a base de dados amadurecer. |
+
+## Estado implementado — V1.2.0 (01/11/2026)
+
+**Público e operação:** gestão de pequeno varejo e loja de variedades por navegador desktop/mobile, com autenticação na produção. Módulos atualmente operantes: categorias, catálogo de produtos (incluindo foto), estoque e lotes perecíveis, ajuste com trilha de auditoria, PDV, desconto, estorno integral com recomposição dos lotes, histórico, indicadores e relatórios de vendas/estoque, exportação Excel, SAD e atualização de gráficos.
+
+**Nova capacidade visual:** incluir ou substituir foto pela câmera ou galeria, comprimir para JPEG de até 100 KB e vinculá-la pelo código SKU ou ID. O operador pode remover a foto, e produtos sem imagem exibem ícone padrão. A foto não integra o cálculo financeiro nem altera saldos.
+
+**Restrições:** estorno não transfere dinheiro por Pix/cartão; apenas registra a reversão contábil no sistema. O serviço Render gratuito pode hibernar. As imagens persistem no banco PostgreSQL/Neon, e não no filesystem efêmero. O crescimento do catálogo exige avaliação de storage de objetos antes do limite do plano de dados.

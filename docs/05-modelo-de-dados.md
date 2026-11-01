@@ -68,3 +68,13 @@ O preço unitário é armazenado em `SaleItem` para manter o histórico correto 
 | `created_at` | instante da operação |
 
 O lançamento de venda e seus movimentos ocorre atomicamente. A alteração de saldo pelo cadastro também gera um lançamento de ajuste. O saldo de abertura de produtos antigos não tem histórico retroativo.
+
+## Modelo em produção (extensões V1.2.0)
+
+`Product`: adiciona `perishable`, `image_updated_at` (nulo = sem foto); estoque mínimo, validade legada e SKU opcional. `ProductImage`: `id`, `product_id UNIQUE (ON DELETE CASCADE)`, `filename` (SKU/ID + `.jpg`), `data BYTEA`, `size`, `updated_at`. Cardinalidade Product 1 → 0..1 ProductImage; a foto não é duplicada nas linhas de vendas.
+
+`Sale`: `discount`, `canceled_at`, `cancellation_reason`, `canceled_by`. `SaleItem`: snapshot de quantidade e preço na data da venda. `StockMovement`: `reason` (`sale`/`reversal`/`adjustment`), `justification`, `stock_before`, `stock_after`, `note`; `StockLot`: quantidade por lote/validade; `StockLotAllocation`: vínculo de saída/devolução a lote. `IdempotencyRecord`: chave e resposta original de operações POST para tolerar reenvios.
+
+**Migração:** `backend/core/migrations/0007_product_image.py` adiciona `image_updated_at` e tabela `ProductImage`; não altera nem exclui vendas ou estoques anteriores. A exclusão de produto sem dependências elimina sua imagem por CASCADE. Trocar SKU de produto com foto atualiza o nome lógico no registro (os bytes permanecem os mesmos).
+
+**Invariantes:** imagem JPEG válida até 102400 bytes, até 4096 pixels em cada dimensão na validação do servidor; frontend padroniza 800×800 px ou menor. Dados binários não podem constar em `/api/products/`. Excluir a imagem define `image_updated_at=NULL`.

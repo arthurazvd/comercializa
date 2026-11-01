@@ -128,3 +128,9 @@ Falhas encontradas devem ser reproduzíveis e registradas com comportamento obse
 ## 15. Evidências e relatórios
 
 As evidências são compostas pelos arquivos de teste versionados, saída do GitHub Actions, `coverage.xml`, métricas do projeto no SonarQube LABENS e documentos de planejamento/estado dos testes em `docs/`.
+
+## Ampliação de escopo da V1.2.0
+
+Adicionar ao PTG: foto como campo opcional no cadastro/edição; conversão JPEG ≤100 KB no frontend; validação MIME/assinatura/limite/dimensões no backend; API autenticada GET/PUT/DELETE; exclusão e substituição; consistência após falha parcial; privacidade dos bytes; tempo dos toasts; compatibilidade câmera/galeria mobile. Critérios em `08-criterios-de-aceitacao.md`, matriz detalhada em `21-matriz-rastreabilidade-campos.md` e contrato em `22-contrato-api-fotos.md`.
+
+A liberação requer CI backend/frontend verde, build Vite concluído e smoke test manual em Render/Cloudflare. Não estabelecer meta de 100% de cobertura sem relatório executado de pytest-cov e E2E.

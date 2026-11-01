@@ -7,8 +7,8 @@ const app = read('../src/App.vue')
 const css = read('../src/style.css')
 const numeric = read('../src/components/NumericField.vue')
 
-test('versão SemVer 1.1.0 corresponde ao package, aparece no footer e tira slogan', () => {
-  assert.equal(APP_VERSION, '1.1.0')
+test('versão SemVer 1.2.0 corresponde ao package, aparece no footer e tira slogan', () => {
+  assert.equal(APP_VERSION, '1.2.0')
   assert.equal(JSON.parse(read('../package.json')).version, APP_VERSION)
   assert.match(app, /Versão \{\{ APP_VERSION \}\}/)
   assert.doesNotMatch(app, /SEU NEGÓCIO EM MOVIMENTO/)

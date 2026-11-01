@@ -53,3 +53,40 @@
 3. SAD gera alerta.
 4. SAD sugere avaliação de promoção/desconto.
 5. Comerciante decide a ação.
+
+## Casos de uso operacionais acrescentados — V1.2.0
+
+### UC10 — Cadastrar produto com foto
+
+**Ator:** operador autenticado. **Pré:** permissão de cadastro.
+
+1. Operador abre Produtos, informa nome, preços, saldo, categoria e SKU (opcional).
+2. Clica em **Escolher da galeria** ou **Tirar foto**; navegador solicita arquivo ou câmera, conforme disponibilidade do dispositivo.
+3. A aplicação converte e enquadra a foto localmente como JPEG de até 100 KB, sem mudar a proporção.
+4. Operador visualiza prévia e salva produto. O sistema registra os dados e depois envia a fotografia ao endpoint do produto criado.
+5. No catálogo, o produto aparece com miniatura; a lista contém apenas metadados, não bytes de imagem.
+
+**Alternativas:** se não for possível reduzir a imagem, informa-se o motivo sem enviar o arquivo. Se o cadastro concluir mas o upload falhar, o produto permanece salvo e a tela mantém seu ID para reenvio, evitando duplicação. SKU ausente gera nome de foto com ID.
+
+### UC11 — Editar, substituir ou remover foto
+
+**Ator:** operador. **Pré:** produto existente.
+
+1. Seleciona **Editar** no catálogo.
+2. Visualiza a imagem atual (quando houver), escolhe outra ou aciona **Remover foto**.
+3. Salva as alterações; o sistema substitui ou apaga a imagem, sem mexer no estoque.
+4. A nova miniatura é atualizada pela data `image_updated_at`.
+
+**Alternativas:** sem foto, exibir ícone padrão; se imagem nova estiver inválida, não substitui a anterior.
+
+### UC12 — Adicionar item repetido ao PDV
+
+**Ator:** operador. Ao selecionar produto já presente no carrinho e tocar em Incluir, o sistema soma as quantidades na mesma linha; se o limite de estoque for excedido, bloqueia e informa a razão.
+
+### UC13 — Estornar venda integralmente
+
+**Ator:** operador autenticado. Abre histórico, seleciona venda válida, informa justificativa, confirma. O sistema marca a venda estornada, recompõe estoque/lotes e atualiza indicadores. **Não realiza reembolso bancário**; dinheiro é devolvido externamente.
+
+### UC14 — Receber notificações transitórias
+
+Após gravação ou validação, a mensagem e a barra de progresso aparecem por até 1,5 s, desaparecendo automaticamente quando a barra termina; o usuário também pode dispensá-la pelo botão. Um alerta novo substitui o antigo com novo prazo.

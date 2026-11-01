@@ -72,3 +72,23 @@ Em evolução posterior, o SAD deverá classificar produtos por participação n
 **RN04:** produto próximo do vencimento deve gerar alerta conforme janela configurada.  
 **RN05:** recomendação deve informar ação e justificativa.  
 **RN06:** produtos sem venda no período de análise podem ser classificados como baixa movimentação.
+
+## Requisitos implementados e refinados — V1.2.0
+
+**RF21 — Foto de produto:** no cadastro e na edição, permitir selecionar fotografia da galeria ou capturar pela câmera, com prévia. A foto é opcional; salvar o produto sem foto deve funcionar.
+
+**RF22 — Padronização:** a foto deverá ser convertida para `image/jpeg`, enquadrada sem deformar a proporção em fundo branco, em dimensão quadrada de até 800×800 px (podendo diminuir para caber) e tamanho máximo de 102.400 bytes. O nome gerado no servidor deverá usar o código SKU sanitizado (`CODIGO.jpg`), ou ID quando não houver SKU.
+
+**RF23 — Persistência e segurança:** permitir uma foto por produto, com substituição e exclusão, armazenada no banco persistente; leitura/upload/remoção autenticados em produção. Não incluir os bytes de fotos no JSON da listagem de produtos.
+
+**RF24 — Separação de falhas:** se o cadastro já tiver retorno HTTP 2xx, eventual falha posterior na foto não deve desfazer o produto nem gerar novo produto ao reenviar. A tela deve preservar o ID e informar especificamente a falha da foto.
+
+**RF25 — Mensagens:** toasts de sucesso/erro devem desaparecer automaticamente em 1,5 segundo, no fim da barra animada, com opção de fechar manualmente. Os erros de campos inválidos continuam sendo apresentados.
+
+**RF26 — Usabilidade do PDV:** adicionar produto que já está no carrinho soma a quantidade sem criar linha duplicada; respeita o saldo; controles `+` e `−` em campos numéricos mobile.
+
+**RF27 — Gráficos:** evolução das vendas em barras; dez itens mais vendidos por unidades em rosca, sem 11º/“Outros”; categorias em rosca. Cartões em tamanho estável e listas extensas com scroll vertical temático.
+
+**RF28 — Layout e sessão:** sidebar estática no desktop, navegação inferior mobile, tema claro/escuro, sessão autenticada em produção, versionamento SemVer (`1.2.0`).
+
+**RNF01 — Resiliência:** indisponibilidade das consultas de leitura não pode ser confundida com falha de gravação confirmada. **RNF02 — Capacidade:** fotos de até 100 KB ocupam espaço no PostgreSQL, portanto o armazenamento é adequado apenas ao volume suportado pela instância. **RNF03 — Acessibilidade:** botões de câmera/galeria, estado de prévia e imagens possuem rótulos, foco navegável e fallback.

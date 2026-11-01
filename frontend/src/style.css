@@ -712,3 +712,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .sale-draft-controls { grid-template-columns: minmax(0, 1fr) minmax(120px, 45%); }
   .numeric-control { grid-template-columns: 34px minmax(42px, 1fr) 34px; }
 }
+
+
+/* V1.2.0 — fotos do catálogo e controle de upload mobile */
+.product-thumbnail { overflow: hidden; border: 1px solid var(--stroke); }
+.product-thumbnail img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+.product-thumbnail--catalog { width: 49px; height: 49px; flex: 0 0 49px; }
+.product-thumbnail--editor { width: 105px; height: 105px; flex: 0 0 105px; }
+.product-photo-editor { display: flex; flex-wrap: wrap; gap: 16px; padding: 14px; border: 1px dashed var(--stroke); border-radius: 13px; background: var(--canvas); }
+.photo-preview { height: 108px; width: 108px; display: grid; place-items: center; overflow: hidden; border-radius: 12px; background: var(--surface); }
+.photo-preview > img { width: 100%; height: 100%; object-fit: cover; }
+.photo-editor-actions { flex: 1; min-width: 0; display: grid; gap: 9px; align-content: center; }
+.photo-editor-actions strong { font-size: 13px; color: var(--ink); }
+.photo-editor-actions small { color: var(--muted); font-size: 11px; }
+.photo-optional { font-weight: 400; color: var(--muted); }
+.photo-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+.photo-buttons .btn { white-space: normal; padding: 9px 10px; min-height: 39px; }
+.photo-remove { color: #ca5555; border: 1px solid #dfbaba; background: var(--surface); }
+.photo-ready { color: var(--accent) !important; font-weight: 700; }
+.photo-editor-actions .photo-ready { color: var(--accent) !important; }
+.photo-error { margin: 0; color: #ce5050; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.visually-hidden-input { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media(max-width: 520px) { .product-photo-editor { flex-direction: column; gap: 12px; }.photo-preview { width: 100%; height: 180px; }.photo-preview .product-thumbnail--editor { width: 100%; height: 180px; }.photo-buttons .btn { flex: 1 1 135px; } }

@@ -86,3 +86,11 @@ A equipe deverá buscar:
 - evitar redução da cobertura sem justificativa;
 - ampliar cenários de integração e aceitação;
 - manter registro do resultado da suíte em cada iteração.
+
+## Estado de auditoria — V1.2.0 (01/11/2026)
+
+**Escopo revisado:** o repositório contém testes em `backend/core/tests.py`, `backend/tests/test_*.py` e `frontend/tests/*.test.js`, além de CI GitHub Actions com `pytest --cov=core`, testes Node e build Vite. Esta revisão ampliou o frontend em 9 testes de foto/toast (78 testes locais aprovados) e criou cenários de API no novo `backend/tests/test_product_images.py`.
+
+**Evidência nesta execução:** `npm test` executado com 78 aprovados, 0 falhas; sintaxe Python compilada. O ambiente local não continha Django/DRF instalado, logo **não foi possível executar a suíte backend nem obter porcentagem de cobertura nesta entrega**. O build Vue/Vite depende da instalação npm e não está validado até conclusão no CI.
+
+**Não confundir teste com cobertura de todos os campos:** alguns contratos frontend são verificados estaticamente, não por navegador real. A matriz por campo/funcionalidade e as lacunas remanescentes são documentadas em `21-matriz-rastreabilidade-campos.md`. Passar os testes não valida a rede Render, câmera física, iOS/Android ou limite de armazenamento no Neon.

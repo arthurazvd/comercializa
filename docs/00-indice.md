@@ -39,3 +39,10 @@
 - [18 — Iteração 02: identidade visual, catálogo, posição de estoque, relatórios e Excel](18-identidade-estoque-relatorios-2026-10-29.md)
 
 - [19 — Iteração 03: logos responsivas, favicon e rodapé](19-identidade-responsiva-footer-2026-10-30.md)
+
+## Especificações atuais (V1.2.0)
+
+- [Matriz de rastreabilidade dos campos e cenários de teste](21-matriz-rastreabilidade-campos.md)
+- [Contrato de API e armazenamento das fotos](22-contrato-api-fotos.md)
+
+O conjunto `01`–`16` permanece como documentação funcional e acadêmica de base. As seções **Estado implementado V1.2.0** complementam os documentos em que o escopo evoluiu. Relatórios de iterações antigas são históricos e não representam todas as funções atuais.

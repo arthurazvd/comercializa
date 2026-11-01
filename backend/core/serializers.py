@@ -29,6 +29,7 @@ class ProductSerializer(serializers.ModelSerializer):
     expiring_units = serializers.SerializerMethodField()
     nearest_expiration = serializers.SerializerMethodField()
     margin = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    has_image = serializers.SerializerMethodField()
     purchase_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False)
     sale_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
     stock = serializers.IntegerField(min_value=0, required=False)
@@ -41,8 +42,12 @@ class ProductSerializer(serializers.ModelSerializer):
             "purchase_price", "sale_price", "margin", "stock",
             "minimum_stock", "expiration_date", "perishable", "active", "created_at",
             "available_stock", "expired_units", "expiring_units", "nearest_expiration",
+            "has_image", "image_updated_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ["created_at", "image_updated_at", "has_image"]
+
+    def get_has_image(self, obj):
+        return bool(obj.image_updated_at)
 
     @staticmethod
     def _snapshot(obj):

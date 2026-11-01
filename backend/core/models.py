@@ -29,6 +29,7 @@ class Product(models.Model):
     perishable = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    image_updated_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -41,6 +42,22 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProductImage(models.Model):
+    """Uma imagem JPEG de até 100 KB por produto, persistida no PostgreSQL.
+
+    Nunca gravar no disco efêmero do Render. Os bytes não são serializados nas
+    listas de produtos; são devolvidos somente pelo endpoint autenticado.
+    """
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='image_record')
+    data = models.BinaryField()
+    filename = models.CharField(max_length=100)
+    size = models.PositiveIntegerField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.filename
 
 
 class Sale(models.Model):
