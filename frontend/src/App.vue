@@ -39,7 +39,6 @@ const loading = ref(true)
 const financeLoading = ref(false)
 const financeError = ref(false)
 const syncDelayed = ref(false)
-const writeConfirmationPending = ref(false)
 const search = ref('')
 const filter = ref('all')
 const stockSearch = ref('')
@@ -191,7 +190,6 @@ function onUnauthorized() {
   categories.value = []
   sales.value = []
   movements.value = []
-  writeConfirmationPending.value = false
   loginError.value = 'Sua sessão expirou ou foi encerrada. Entre novamente.'
 }
 function onAppResume() {
@@ -266,27 +264,24 @@ async function signOut() {
 }
 function alertUser(text, type = 'success') { toastController.show(text, type) }
 function notifyWriteFailure(error) {
-  // Não declarar falha em uma escrita cujo resultado ainda está sendo confirmado.
-  // O aviso discreto é persistente: o operador não deve duplicar uma venda.
+  // Se a resposta do POST não chegou, não há prova de falha: nada de alerta
+  // repetitivo de API nem de "verificação pendente". O GET normal reconcilia
+  // as listas; o próximo clique reutiliza a chave e não duplica a operação.
   if (isWritePending(error) || isTransientFailure(error)) {
-    writeConfirmationPending.value = true
-    console.warn('Confirmação de operação pendente:', error)
+    console.info('Resposta da gravação indisponível; listas serão sincronizadas.')
+    refreshVisibleData()
     return
   }
   const message = writeErrorText(error, errorText)
   if (message) alertUser(message, 'error')
 }
 function notifyReadFailure(error) {
-  // Oscilações temporárias do Render não geram pop-ups vermelhos a cada GET.
-  // Mantemos os dados já exibidos; operações sensíveis continuam com feedback.
-  console.warn('Consulta temporariamente indisponível:', error)
-  if (isTransientFailure(error) || Number(error?.response?.status) >= 500) syncDelayed.value = true
-  else if (error?.response?.status !== 401 && error?.code !== 'ERR_CANCELED') {
-    alertUser(errorText(error), 'error')
-  }
+  // Relatórios já indicam problema no próprio painel. Não transformar falhas
+  // de consulta em pop-up de "conexão com API" na tela do operador.
+  console.warn('Consulta não atualizada:', error)
+  if (error?.response?.status !== 401 && error?.code !== 'ERR_CANCELED') syncDelayed.value = true
 }
 function applyConfirmedWrite(updateUI, response) {
-  writeConfirmationPending.value = false
   // O sucesso HTTP é definitivo. Uma falha reativa/local NÃO pode ser
   // apresentada como falha da gravação no servidor.
   try { updateUI(response) }
@@ -377,7 +372,7 @@ async function saveProduct() {
   try {
     const response = payload.id
       ? await api.put(`products/${payload.id}/`, payload)
-      : await postWithRecovery('products/', payload, { onConfirmedLater: result => applyConfirmedWrite(onSaved, result) })
+      : await postWithRecovery('products/', payload)
     applyConfirmedWrite(onSaved, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
@@ -419,9 +414,7 @@ async function addCategory() {
     void refreshResources(['categories'], { force: true })
   }
   try {
-    const response = await postWithRecovery('categories/', { name: submittedName }, {
-      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
-    })
+    const response = await postWithRecovery('categories/', { name: submittedName })
     applyConfirmedWrite(onSaved, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
@@ -523,9 +516,7 @@ async function confirmReversal() {
     refreshChartsAfterWrite()
   }
   try {
-    const response = await postWithRecovery(`sales/${saleId}/cancel/`, { reason }, {
-      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
-    })
+    const response = await postWithRecovery(`sales/${saleId}/cancel/`, { reason })
     applyConfirmedWrite(onSaved, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
@@ -547,9 +538,7 @@ async function registerSale() {
     refreshChartsAfterWrite()
   }
   try {
-    const response = await postWithRecovery('sales/', payload, {
-      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
-    })
+    const response = await postWithRecovery('sales/', payload)
     applyConfirmedWrite(onSaved, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
@@ -569,9 +558,7 @@ async function adjustStock() {
     refreshChartsAfterWrite()
   }
   try {
-    const response = await postWithRecovery('stock-movements/', payload, {
-      onConfirmedLater: result => applyConfirmedWrite(onSaved, result),
-    })
+    const response = await postWithRecovery('stock-movements/', payload)
     applyConfirmedWrite(onSaved, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
@@ -650,12 +637,11 @@ function labelStatus(p) {
       <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
       <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
     </nav>
-    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Sincronização pendente' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades</small></div>
+    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Mostrando últimos dados' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades · Versão 09</small></div>
   </aside>
   <main class="main-content">
     <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
     <Transition name="toast"><div v-if="toast" :class="['toast-notice', toast.type]" :role="toast.type === 'error' ? 'alert' : 'status'" :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"><span class="toast-glyph"><AppIcon :name="toast.type === 'error' ? 'alert' : 'check'" :size="20" /></span><span>{{ toast.text }}</span><button type="button" aria-label="Dispensar notificação" @click="toastController.dismiss()"><AppIcon name="close" :size="17" /></button><span class="toast-timer"></span></div></Transition>
-    <div v-if="writeConfirmationPending" class="pending-write-banner" role="status"><AppIcon name="clock" :size="16" /><span>Uma operação ainda está sendo confirmada. Confira o histórico antes de repeti-la.</span><button type="button" @click="refreshVisibleData">Consultar dados</button></div>
     <div v-if="loading && !dashboard" class="panel loading">Carregando dados…</div>
     <div v-else-if="!dashboard && tab === 'dashboard'" class="panel data-empty-state" role="status">Os dados ainda não foram carregados. <button class="btn secondary" type="button" @click="refreshVisibleData">Atualizar dados</button></div>
 

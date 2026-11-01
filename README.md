@@ -1,3 +1,11 @@
+## Atualização 09 — confirmação simples de gravações (01/11/2026)
+
+- O aplicativo aceita o **status HTTP 2xx** (incluindo `201 Created`) como sucesso do cadastro, sem consulta adicional a `operations/<chave>/`.
+- Foram removidos o polling de confirmação, a tentativa automática de repetir `POST` e o banner de operação pendente.
+- Se a conexão cair antes de o navegador receber a resposta, **não aparece erro genérico** nem se afirma que a gravação ocorreu. As listas são recarregadas normalmente; caso o usuário clique de novo com os mesmos dados, a **mesma chave de idempotência** é reutilizada para impedir duplicações no servidor.
+- **Erros reais de validação e autenticação continuam visíveis.** Não foi removida a API nem a proteção do backend contra vendas duplicadas.
+- Publicação: **atualizar somente o frontend no Cloudflare Pages**. Confirme que a barra lateral indica **Versão 09**; caso apareça outra versão, o deploy antigo ainda está aberto.
+
 ## Atualização 08 — ranking em rosca e avisos de conexão (01/11/2026)
 
 - **Itens mais vendidos:** visualização fixa em rosca, sem seletor de tipo nem barra horizontal. Os demais gráficos conservam seus controles.

@@ -46,19 +46,11 @@ test('HTTP 201 é confirmação definitiva: não mostra falha nem repete POST', 
   assert.equal(app.writeErrorText(new TypeError('Erro de interface'), () => 'Erro na interface'), 'Erro na interface')
 })
 
-test('timeout do POST com registro confirmado recupera sucesso sem duplicação', async () => {
+test('HTTP 201 dispensa checagem: nenhum GET de comprovante é feito', async () => {
   let sent = 0
-  let key
   const { module: app } = await setup({
-    post: async (_url, _data, config) => {
-      sent += 1
-      key = config.headers['Idempotency-Key']
-      throw timeout()
-    },
-    get: async path => {
-      assert.equal(path, `operations/${key}/`)
-      return { data: { confirmed: true, status: 201, path: '/api/categories/', data: { id: 44, name: 'Carrinhos' } } }
-    },
+    post: async () => { sent += 1; return { status: 201, data: { id: 44, name: 'Carrinhos' } } },
+    get: async () => { throw new Error('GET de comprovante é proibido') },
   })
   const result = await app.postWithRecovery('categories/', { name: 'Carrinhos' })
   assert.equal(result.status, 201)
@@ -66,23 +58,42 @@ test('timeout do POST com registro confirmado recupera sucesso sem duplicação'
   assert.equal(sent, 1)
 })
 
-test('desconexão real conserva chave e não exibe o aviso falso de operação não confirmada', async () => {
+test('timeout não causa reenvio automático nem consulta extra; conserva a chave para o próximo clique', async () => {
   const keys = []
+  let requestCount = 0
   const { module: app, entries } = await setup({
     post: async (_url, _data, config) => {
+      requestCount += 1
       keys.push(config.headers['Idempotency-Key'])
-      throw timeout()
+      if (requestCount === 1) throw timeout()
+      return { status: 201, data: { id: 99, name: 'Novidades' } }
     },
-    get: async () => { throw Object.assign(new Error('not found'), { response: { status: 404 }, isAxiosError: true }) },
+    get: async () => { throw new Error('GET de confirmação não permitido') },
   })
   await assert.rejects(() => app.postWithRecovery('categories/', { name: 'Novidades' }), e => {
     assert.equal(app.isWritePending(e), true)
     assert.equal(app.writeErrorText(e, () => 'Falha real'), '')
     return true
   })
+  assert.equal(keys.length, 1)
+  assert.equal([...entries.keys()].filter(key => key.startsWith('comercializa_op_')).length, 1)
+  const result = await app.postWithRecovery('categories/', { name: 'Novidades' })
+  assert.equal(result.status, 201)
   assert.equal(keys.length, 2)
   assert.equal(keys[0], keys[1])
-  assert.equal([...entries.keys()].filter(key => key.startsWith('comercializa_op_')).length, 1)
+  assert.equal([...entries.keys()].filter(key => key.startsWith('comercializa_op_')).length, 0)
+})
+
+test('erro de validação 400 não é ocultado como falha transitória', async () => {
+  const error = Object.assign(new Error('Dados inválidos'), {
+    isAxiosError: true, response: { status: 400, data: { name: ['Obrigatório'] } },
+  })
+  const { module: app, entries } = await setup({
+    post: async () => { throw error },
+    get: async () => { throw new Error('GET de confirmação não permitido') },
+  })
+  await assert.rejects(() => app.postWithRecovery('categories/', { name: '' }), e => e === error)
+  assert.equal([...entries.keys()].filter(key => key.startsWith('comercializa_op_')).length, 0)
 })
 
 test('erro na atualização da tela após HTTP 201 não produz toast de falha de cadastro', () => {
@@ -91,9 +102,9 @@ test('erro na atualização da tela após HTTP 201 não produz toast de falha de
   const end = appSource.indexOf('function errorText(', start)
   const notifications = []
   let refreshes = 0
-  const createHandler = new Function('console', 'alertUser', 'refreshVisibleData', 'writeConfirmationPending',
+  const createHandler = new Function('console', 'alertUser', 'refreshVisibleData',
     `${appSource.slice(start, end)}; return applyConfirmedWrite`)
-  const handle = createHandler({ error() {} }, (text, type = 'success') => notifications.push({ text, type }), () => { refreshes += 1 }, { value: true })
+  const handle = createHandler({ error() {} }, (text, type = 'success') => notifications.push({ text, type }), () => { refreshes += 1 })
   handle(() => { throw new TypeError('Falha no componente após HTTP 201') }, { status: 201, data: { id: 1 } })
   assert.equal(notifications.length, 1)
   assert.equal(notifications[0].type, 'success')

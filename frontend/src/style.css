@@ -522,10 +522,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .top-products-chart .legend-entry { gap: 9px; margin-bottom: 10px; }
 .top-products-chart .legend-label { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
 .top-products-chart .top-product-list { border-top: 1px solid var(--stroke); margin-top: 19px; padding-top: 6px; }
-.pending-write-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding: 11px 13px; border: 1px solid var(--stroke); border-radius: 11px; background: var(--surface); color: var(--ink); font-size: 12px; }
-.pending-write-banner svg { color: var(--accent); flex: 0 0 auto; }
-.pending-write-banner span { flex: 1 1 190px; }
-.pending-write-banner button { background: transparent; border: 0; color: var(--accent); font-weight: 800; text-decoration: underline; padding: 7px; }
 .report-unavailable { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 14px; color: var(--muted); font-size: 12px; }
 @media (max-width: 620px) {
   .top-products-chart .donut-svg { width: min(100%, 205px); }

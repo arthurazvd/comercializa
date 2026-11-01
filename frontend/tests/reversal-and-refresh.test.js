@@ -21,12 +21,12 @@ test('gráficos não dependem da aba em que uma venda ocorreu', () => {
   assert.match(app, /chartErrorTimer = window\.setTimeout/)
 })
 
-test('API verifica idempotência persistida e desativa leitura cacheada', () => {
+test('API usa chave de idempotência sem endpoint de verificação', () => {
   const api = file('src/api.js')
-  assert.match(api, /operations\/\$\{key\}\//)
-  assert.match(api, /findConfirmedPost\(url, key\)/)
+  assert.doesNotMatch(api, /findConfirmedPost|operations\/\$\{key\}\//)
   assert.match(api, /__fresh: Date\.now\(\)/)
   assert.match(api, /pendingStorageName/)
+  assert.match(api, /Idempotency-Key/)
 })
 
 test('campo selecionado não cria linha extra e mantém alinhamento em mobile', () => {

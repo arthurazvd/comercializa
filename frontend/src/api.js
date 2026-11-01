@@ -11,14 +11,10 @@ export function getAuthToken() {
 }
 export function saveAuthToken(token) {
   pendingPosts.clear()
-  for (const job of backgroundConfirmations.values()) job.active = false
-  backgroundConfirmations.clear()
   try { window.sessionStorage.setItem(TOKEN_KEY, token) } catch { /* sem armazenamento */ }
 }
 export function clearAuthToken() {
   pendingPosts.clear()
-  for (const job of backgroundConfirmations.values()) job.active = false
-  backgroundConfirmations.clear()
   try { window.sessionStorage.removeItem(TOKEN_KEY) } catch { /* sem armazenamento */ }
 }
 
@@ -71,45 +67,11 @@ api.interceptors.response.use(
 )
 
 const pendingPosts = new Map()
-const backgroundConfirmations = new Map()
-
+// Mantemos só a chave de idempotência: sem polling, sem consulta adicional de
+// "comprovação" e sem repetição automática de escritas.
 function finishPendingOperation(signature, storedName) {
   pendingPosts.delete(signature)
   setPendingStorage(storedName, null)
-  const pending = backgroundConfirmations.get(signature)
-  if (pending) {
-    pending.active = false
-    backgroundConfirmations.delete(signature)
-  }
-}
-
-function continueConfirmation(url, key, signature, storedName, onConfirmedLater) {
-  if (typeof onConfirmedLater !== 'function') return
-  if (backgroundConfirmations.has(signature)) return
-  const job = { active: true }
-  backgroundConfirmations.set(signature, job)
-  // Nunca reenvia uma escrita automaticamente nesta fase: consulta apenas o
-  // comprovante da operação já gravado, usando a mesma chave idempotente.
-  void (async () => {
-    for (const delay of [1500, 3000, 6000, 12000, 24000, 48000]) {
-      await new Promise(resolve => setTimeout(resolve, delay))
-      if (!job.active) break
-      try {
-        const response = await findConfirmedPost(url, key)
-        if (response && job.active) {
-          finishPendingOperation(signature, storedName)
-          onConfirmedLater(response)
-          return
-        }
-      } catch (error) {
-        if (error?.response?.status === 401 || error?.response?.status === 403) break
-      }
-    }
-    if (backgroundConfirmations.get(signature) === job) backgroundConfirmations.delete(signature)
-  })().catch(error => {
-    console.warn('Falha durante a confirmação posterior:', error)
-    if (backgroundConfirmations.get(signature) === job) backgroundConfirmations.delete(signature)
-  })
 }
 
 // A sessão guarda apenas UUID + hash de uma operação não confirmada (nunca
@@ -139,64 +101,33 @@ function newOperationId() {
   return globalThis.crypto?.randomUUID?.() || `op_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`
 }
 
-/** Confirma no banco a operação que pode ter sido concluída sem resposta HTTP. */
-async function findConfirmedPost(url, key) {
-  try {
-    const { data } = await api.get(`operations/${key}/`, {
-      timeout: 20000, __readRetry: 1,
-    })
-    const normalizedPath = `/api/${url.replace(/^\/+/, '')}`
-    if (data?.confirmed && data.path === normalizedPath && data.status >= 200 && data.status < 300) {
-      return { data: data.data, status: data.status, headers: { 'x-operation-confirmed': 'true' } }
-    }
-  } catch (error) {
-    if (error?.response?.status === 401 || error?.response?.status === 403) throw error
-    // 404 = operação ainda não confirmada. Em falha de rede, o POST seguinte
-    // reutiliza a mesma chave; a API garante execução única no banco.
-  }
-  return null
-}
-
-/** Reenvio seguro: consulta a confirmação persistida antes de repetir um POST.
- * A chave fica pendente em caso de interrupção, não é descartada por timeout.
+/**
+ * Um único POST por clique. HTTP 2xx é sucesso definitivo; nenhum GET extra é
+ * exigido para "confirmar". Se a conexão cair antes da resposta, preservamos a
+ * mesma Idempotency-Key para um eventual clique posterior, sem duplicar dados.
+ * Não afirmamos sucesso nem erro quando a resposta não chegou.
  */
-export async function postWithRecovery(url, payload, { onConfirmedLater } = {}) {
+export async function postWithRecovery(url, payload) {
   const signature = `${url}:${JSON.stringify(payload)}`
   const storedName = await pendingStorageName(signature)
-  const oldKey = pendingFromStorage(storedName)
-  let key = pendingPosts.get(signature) || oldKey
-  const resumed = Boolean(oldKey)
-  if (!key) key = newOperationId()
+  const key = pendingPosts.get(signature) || pendingFromStorage(storedName) || newOperationId()
   pendingPosts.set(signature, key)
   setPendingStorage(storedName, key)
-  const config = { headers: { 'Idempotency-Key': key }, timeout: 95000 }
   try {
-    let response = resumed ? await findConfirmedPost(url, key) : null
-    try {
-      if (!response) response = await api.post(url, payload, config)
-    } catch (error) {
-      if (!isTransientFailure(error)) throw error
-      response = await findConfirmedPost(url, key)
-      if (!response) {
-        try {
-          response = await api.post(url, payload, config)
-        } catch (retryError) {
-          if (!isTransientFailure(retryError)) throw retryError
-          response = await findConfirmedPost(url, key)
-          if (!response) throw retryError
-        }
-      }
-    }
+    const response = await api.post(url, payload, {
+      headers: { 'Idempotency-Key': key },
+      timeout: 95000,
+    })
+    // Axios resolve somente os status de sucesso (2xx).
     finishPendingOperation(signature, storedName)
     return response
   } catch (error) {
-    if (isTransientFailure(error)) {
-      // A resposta pode ter sido perdida DEPOIS do commit. Não exibir um
-      // pop-up vermelho de erro: verificar a operação em segundo plano.
-      continueConfirmation(url, key, signature, storedName, onConfirmedLater)
-      const pending = new Error('Confirmação pendente no servidor.', { cause: error })
-      pending.code = 'COMERCIALIZA_WRITE_PENDING'
-      throw pending
+    if (isTransientFailure(error) || (axios.isAxiosError(error) && Number(error.response?.status) >= 500)) {
+      // O servidor pode ter gravado: não repetir POST automaticamente.
+      // Se o usuário enviar o mesmo formulário, a API recebe a mesma chave.
+      const uncertain = new Error('Resposta não recebida.', { cause: error })
+      uncertain.code = 'COMERCIALIZA_WRITE_PENDING'
+      throw uncertain
     }
     finishPendingOperation(signature, storedName)
     throw error
@@ -204,8 +135,7 @@ export async function postWithRecovery(url, payload, { onConfirmedLater } = {}) 
 }
 
 export function writeErrorText(error, standardMessage) {
-  // Estado desconhecido não equivale a erro de gravação. Não mostrar um
-  // alerta falso, especialmente quando o POST terminou com 201 no servidor.
+  // Falha de transporte sem resposta HTTP não prova falha do cadastro.
   if (isWritePending(error)) return ''
   return standardMessage(error)
 }

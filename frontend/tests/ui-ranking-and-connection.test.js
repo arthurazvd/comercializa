@@ -23,9 +23,9 @@ test('consultas automáticas e gráficos não exibem toast genérico de conexão
   assert.doesNotMatch(app, /Não foi possível conectar à API/)
 })
 
-test('operações com confirmação incerta não somem em silêncio nem afirmam sucesso', () => {
-  assert.match(app, /writeConfirmationPending\.value = true/)
-  assert.match(app, /writeConfirmationPending\.value = false/)
-  assert.match(app, /v-if="writeConfirmationPending"/)
-  assert.match(app, /Confira o histórico antes de repeti-la/)
+test('sem banner de verificação nem consultas extras de comprovante', () => {
+  const api = readFileSync(new URL('../src/api.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(app, /writeConfirmationPending|pending-write-banner|Consultar dados/)
+  assert.doesNotMatch(api, /continueConfirmation|findConfirmedPost|operations\/\$\{key\}\//)
+  assert.match(app, /Versão 09/)
 })
