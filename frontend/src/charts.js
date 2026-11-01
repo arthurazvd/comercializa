@@ -57,15 +57,13 @@ export function productChartData(products = [], measure = 'quantity', limit = 8)
     .slice(0, limit).map(row => ({ label: row.name, value: Number(row[measure] || 0) }))
 }
 
-/** Ranking para rosca: cinco itens mais relevantes e um segmento "Outros".
- * Assim, percentuais representam 100% das vendas e não somente as 8 primeiras.
+/** Mostra somente os N produtos mais vendidos no gráfico e no ranking.
+ * Não inclui um segmento "Outros": os percentuais referem-se apenas ao Top N.
  */
-export function rankingDonutRows(products = [], measure = 'quantity', limit = 5) {
-  const sorted = [...products].filter(p => Number(p[measure]) > 0)
-    .sort((a, b) => Number(b[measure]) - Number(a[measure]))
-  const top = sorted.slice(0, limit).map(row => ({ label: row.name, value: Number(row[measure]) }))
-  const otherValue = sorted.slice(limit).reduce((sum, row) => sum + Number(row[measure]), 0)
-  return otherValue > 0 ? [...top, { label: 'Outros', value: otherValue }] : top
+export function rankingDonutRows(products = [], measure = 'quantity', limit = 10) {
+  return [...products].filter(p => Number(p[measure]) > 0)
+    .sort((a, b) => Number(b[measure]) - Number(a[measure]) || String(a.name).localeCompare(String(b.name), 'pt-BR'))
+    .slice(0, limit).map(row => ({ label: row.name, value: Number(row[measure]) }))
 }
 
 export function concentrationPercentage(categories = []) {

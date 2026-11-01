@@ -4,6 +4,19 @@ Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércio
 
 O repositório contém `backend/` (Django/DRF), `frontend/` (Vue/Vite) e `docs/` (documentação).
 
+
+## Atualização 1.1.0 — interface e vendas (01/11/2026)
+
+- **Versionamento SemVer:** versão `1.1.0` no rodapé e no `package.json`. As próximas correções podem seguir `1.1.1`, `1.1.2` etc.; novas funcionalidades podem usar `1.2.0`.
+- **Vendas:** selecionar e incluir novamente o mesmo item soma a quantidade à linha original, sem duplicar produtos. Respeita o estoque vendável e os lotes disponíveis.
+- **Mobile:** controles `−` e `+` para campos numéricos (quantidade, estoque, preços e desconto). O campo digitável continua disponível.
+- **Notificações:** duração de 1.500 ms para sucessos e erros, com fechamento manual opcional.
+- **Gráficos:** evolução em barras; ranking e participação de categorias em rosca. O ranking exibe **apenas os dez produtos mais vendidos por quantidade**, sem “Outros”; os percentuais representam o total desses dez. O painel de ranking tem rolagem vertical interna e altura limitada.
+- **Layout:** painéis da primeira linha alinhados em altura; scrollbars temáticas claro/escuro; barra lateral fixa durante a rolagem no desktop e navegação inferior preservada no mobile. O slogan abaixo da logo foi retirado.
+- **Deploy:** apenas frontend (Cloudflare Pages). **Backend do Render e banco Neon não precisam ser modificados** nesta versão. Execute `npm ci`, `npm test`, `npm run build` e depois publique o frontend.
+- **API:** fluxos de cadastro, confirmação e idempotência da versão 10 não foram alterados.
+
+
 ## Atualização 10 (correção de mensagens e busca no PDV)
 
 - Nenhuma consulta de comprovante após um POST bem-sucedido: HTTP 2xx é sucesso.
@@ -11,7 +24,7 @@ O repositório contém `backend/` (Django/DRF), `frontend/` (Vue/Vite) e `docs/`
 - Só mensagens de validação/permissão claras devolvidas pelo servidor (4xx com corpo legível) aparecem na tela. Falhas de transporte/5xx ficam no console para suporte técnico.
 - Se a conexão se perder, a tentativa manual da mesma operação mantém a Idempotency-Key, evitando duplicação.
 - O seletor do PDV agora é um painel expansível dentro do formulário, sem flutuar sobre a lista de itens. Borda única de foco, botão para limpar e lista alfabética responsiva.
-- Publicar somente `frontend` no Cloudflare Pages; backend e banco não mudaram nesta atualização. Verificar **Versão 10** no rodapé após deploy e recarregamento.
+- Publicar somente `frontend` no Cloudflare Pages; backend e banco não mudaram nesta atualização. Na versão 10, verificar **Versão 10** no rodapé após deploy e recarregamento.
 
 ## Atualização 09 — confirmação simples de gravações (01/11/2026)
 

@@ -7,7 +7,7 @@ const props = defineProps({
   currency: { type: Boolean, default: true },
   label: { type: String, default: 'Gráfico' },
 })
-const palette = ['#15ae88', '#4c86d7', '#e5a442', '#8664d7', '#ed6f72', '#16a7b9', '#bd71b3', '#94a8b9']
+const palette = ['#15ae88', '#4c86d7', '#e5a442', '#8664d7', '#ed6f72', '#16a7b9', '#bd71b3', '#94a8b9', '#c9853e', '#7eaa55', '#d56e9c', '#597c9e']
 const display = computed(() => props.rows.filter(p => Number(p.value) > 0 || props.type !== 'donut'))
 const width = computed(() => Math.max(480, display.value.length * 42))
 const height = 260

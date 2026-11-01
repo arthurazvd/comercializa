@@ -2,12 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createToastController } from '../src/toast.js'
 
-test('toast desaparece após 2 segundos', () => {
+test('toast desaparece após 1,5 segundo', () => {
   const updates = []
   const jobs = new Map()
   let id = 0
   const scheduler = { setTimeout: callback => { jobs.set(++id, callback); return id }, clearTimeout: key => jobs.delete(key) }
-  const toast = createToastController(value => updates.push(value), 2000, scheduler)
+  const toast = createToastController(value => updates.push(value), 1500, scheduler)
   toast.show('Venda salva')
   assert.deepEqual(updates.at(-1), { text: 'Venda salva', type: 'success' })
   assert.equal(jobs.size, 1)
@@ -20,7 +20,7 @@ test('novo toast reinicia cronômetro e erros são tratados igualmente', () => {
   const jobs = new Map()
   let id = 0
   const scheduler = { setTimeout: cb => { jobs.set(++id, cb); return id }, clearTimeout: key => jobs.delete(key) }
-  const toast = createToastController(value => updates.push(value), 2000, scheduler)
+  const toast = createToastController(value => updates.push(value), 1500, scheduler)
   toast.show('Cadastrado')
   toast.show('Estoque insuficiente', 'error')
   assert.equal(jobs.size, 1)

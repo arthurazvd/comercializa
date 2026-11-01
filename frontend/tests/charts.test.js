@@ -48,16 +48,13 @@ test('ranking e concentração de categorias ignoram entradas vazias', () => {
 })
 
 
-test('rosca do ranking cobre todos os itens com cinco maiores e Outros', () => {
-  const data = [
-    { name: 'A', quantity: 6 }, { name: 'B', quantity: 5 },
-    { name: 'C', quantity: 4 }, { name: 'D', quantity: 3 },
-    { name: 'E', quantity: 2 }, { name: 'F', quantity: 1 },
-    { name: 'G', quantity: 7 },
-  ]
-  const rows = rankingDonutRows(data)
-  assert.deepEqual(rows.map(x => x.label), ['G', 'A', 'B', 'C', 'D', 'Outros'])
-  assert.equal(rows.at(-1).value, 3)
-  assert.equal(rows.reduce((sum, x) => sum + x.value, 0), 28)
+test('ranking mostra somente os dez maiores por unidades, sem adicionar o décimo primeiro nem Outros', () => {
+  const rows = Array.from({ length: 14 }, (_, i) => ({ id: i, name: `Produto ${i}`, quantity: i + 1, revenue: 14 - i }))
+  const top = rankingDonutRows(rows)
+  assert.equal(top.length, 10)
+  assert.equal(top[0].label, 'Produto 13')
+  assert.equal(top[9].label, 'Produto 4')
+  assert.ok(!top.some(row => row.label === 'Outros'))
+  assert.equal(top.reduce((sum, item) => sum + item.value, 0), 95)
   assert.deepEqual(rankingDonutRows([], 'quantity'), [])
 })

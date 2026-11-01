@@ -23,7 +23,7 @@ test('avisos têm fechamento automático e acessibilidade', () => {
   assert.match(app, /toastController\.dispose\(\)/)
   const css = source('src/style.css')
   assert.match(css, /\.toast-notice \{/)
-  assert.match(css, /toastProgress 2s/)
+  assert.match(css, /toastProgress 1.5s/)
 })
 
 test('recebimento perecível solicita data, gráficos têm controles e logo é compacta', () => {
@@ -33,10 +33,10 @@ test('recebimento perecível solicita data, gráficos têm controles e logo é c
   assert.match(app, /v-model="stockReason"/)
   assert.match(app, /v-model="chartPeriod"/)
   assert.match(app, /v-model="chartGrouping"/)
-  assert.match(app, /v-model="chartStyle"/)
+  assert.match(app, /:rows="trendRows" type="bar"/)
   assert.match(app, /class="panel chart-panel top-products-chart"/)
   assert.match(app, /:rows="rankedRows" type="donut"/)
   assert.doesNotMatch(app, /v-model="productChartStyle"/)
-  assert.match(app, /v-model="categoryChartStyle"/)
+  assert.match(app, /:rows="categoryRows" type="donut"/)
   assert.match(source('src/style.css'), /\.brand-logo-vertical \{ width: 110px; height: 151px;/)
 })

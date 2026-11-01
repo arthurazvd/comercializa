@@ -1,5 +1,5 @@
 /** Notificação única, cancelável e com duração reiniciável. */
-export function createToastController(onChange, duration = 2000, scheduler = { setTimeout, clearTimeout }) {
+export function createToastController(onChange, duration = 1500, scheduler = { setTimeout, clearTimeout }) {
   let timer = null
   function dismiss() {
     if (timer !== null) scheduler.clearTimeout(timer)
