@@ -64,3 +64,15 @@ Uma recomendação é considerada aceitável quando:
 7. XLSX possui sete abas válidas e textos não são executados como fórmulas.
 8. POST com a mesma chave idempotente não gera dois lançamentos, e anulação é auditável.
 9. Relatório está acessível no desktop e celular. Ver [casos e regras](25-gestao-financeira.md).
+
+## Critérios V1.5.0
+
+1. Cadastro e edição aceitam descrição opcional, limitada a 2000 caracteres, persistida após recarregar.
+2. Todos os produtos anteriores mantêm preços, saldos, imagens e lotes após a migração.
+3. O botão de salvar não fica preso após confirmação, timeout ou falha de envio da foto.
+4. Um 201 confirmado não é classificado como erro de cadastro por uma falha da interface.
+5. O navegador não reenvia `POST` automaticamente; o backend continua idempotente.
+6. Pesquisa do catálogo apresenta um único contorno em telas claras e escuras.
+7. Miniatura abre zoom, com modos cobrir e conter, sem alterar JPEG original no armazenamento.
+8. URLs por seção são preservadas em F5, acessos diretos e navegação Voltar/Avançar; `/_redirects` atende ao Cloudflare Pages.
+9. `npm ci`, `npm test`, build Vite e pytest Django devem passar no CI antes da liberação em produção.

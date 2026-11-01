@@ -297,3 +297,9 @@ Documentos principais do Projeto 01:
 ## Gestão financeira (V1.4.0)
 
 O Comercializa agora mostra faturamento, receita após descontos, CMV por custo histórico de venda, lucro bruto, margem, despesas operacionais lançadas, resultado operacional estimado, compras de estoque e investimentos em ativos. O menu **Financeiro** abre os filtros, lançamentos, comparações e a exportação Excel com sete abas. Veja [requisitos, casos de uso, modelo de dados e advertências de precisão](docs/25-gestao-financeira.md). **É necessária a migração `0009_financial_entries` no Neon; faça backup antes de publicar.** Atualize backend no Render antes do frontend no Cloudflare Pages. O resultado NÃO é fluxo de caixa nem lucro líquido contábil.
+
+## Cadastro, descrição e navegação por URL (V1.5.0)
+
+A descrição opcional de até 2.000 caracteres está disponível em criação/edição e nos detalhes. Miniaturas no catálogo e nos detalhes de estoque abrem um visualizador com modos de preenchimento e foto inteira (somente CSS, preserva o JPEG). Visão geral, Vendas, Produtos, Estoque, Movimentações e Financeiro possuem endereços próprios no Cloudflare Pages e mantêm a seção ao recarregar a aba. O cadastro agora libera o botão em `finally` mesmo que ocorra erro de foto/interface, sem repetir `POST` automaticamente. Leia o [documento funcional de navegação e produtos](docs/26-cadastro-descricao-rotas-visualizacao.md).
+
+**Migração obrigatória:** `0010_product_description`. Faça backup no Neon e publique o backend com a migração antes de atualizar o frontend. Todos os produtos existentes recebem descrição vazia, sem modificação do estoque ou histórico.

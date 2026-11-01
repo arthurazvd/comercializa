@@ -102,3 +102,13 @@ Regras, fluxo alternativo e API: [Especificação de lotes](24-custos-por-lote-e
 ## Extensão V1.4.0
 
 Casos **UC-FIN-01** (consultar lucro bruto), **UC-FIN-02** (lançar e anular despesa), **UC-FIN-03** (investimento em ativo) e **UC-FIN-04** (exportar planilha) estão descritos em [Gestão financeira](25-gestao-financeira.md).
+
+## Casos de uso adicionais — V1.5.0
+
+**UC — Descrever produto:** operador cria ou edita descrição opcional, salva e consulta texto no catálogo e no detalhe de estoque; preços e saldos permanecem inalterados.
+
+**UC — Ampliar imagem:** clicar na miniatura abre foto centralizada com visualização preenchida/inteira sem alterar imagem persistida; retorna aos detalhes quando originado do estoque.
+
+**UC — Voltar à mesma seção após recarregar:** navegar para Vendas, Produtos, Estoque, Movimentações, Visão geral ou Financeiro atualiza URL. Atualizar a página ou usar Voltar/Avançar preserva contexto de seção (não inclui os campos ainda não salvos).
+
+**UC — Cadastro com confirmação e erro visual:** um retorno 2xx é sucesso; uma falha no upload de foto não provoca novo cadastro; o indicador de carregamento tem encerramento garantido e um timeout limitado. Para respostas inconclusivas, operador consulta catálogo antes de tentar novamente.

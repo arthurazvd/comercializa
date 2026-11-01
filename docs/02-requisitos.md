@@ -106,3 +106,12 @@ Consulte [detalhamento UC13–15](24-custos-por-lote-e-previsualizacao-de-estoqu
 ## Extensão implementada V1.4.0 — Financeiro
 
 Ver requisitos **RF-FIN-01 a RF-FIN-12**, fórmulas, diferenciação entre lucro e caixa e restrições de alocação em [Gestão financeira](25-gestao-financeira.md).
+
+## Extensão de requisitos — V1.5.0
+
+- RF: produto dispõe de descrição opcional de até 2.000 caracteres, com persistência, edição e visualização nos detalhes.
+- RF: miniatura autenticada do produto abre ampliação com enquadramento ajustável somente na visualização.
+- RF: seções principais e Financeiro possuem URLs navegáveis, preservadas no recarregamento e no histórico.
+- RNF: busca do catálogo e do estoque usa um único contorno de foco sem sobreposição; responsividade preservada.
+- RNF: confirmação HTTP 2xx conclui escrita; falhas de apresentação e foto não impedem liberar o formulário.
+- RNF: navegador não repete gravações automaticamente após timeout; manter idempotência no backend.

@@ -88,3 +88,7 @@ Migração `0008_cost_by_lot`: lotes já cadastrados recebem o custo de referên
 ## Extensão V1.4.0 — FinancialEntry
 
 A migração `0009_financial_entries` introduz `FinancialEntry` para despesas (`expense`) e investimentos em ativos (`investment`), com `category`, `description`, `amount`, `entry_date`, `created_at`, `created_by`, `voided_at` e `voided_by`. Os custos dos produtos vendidos já estão congelados em `SaleItem.cost_total` desde a V1.3.0; custo por compra fica em `StockLot.unit_cost` / `StockMovement.unit_cost`. Ver [gestão financeira](25-gestao-financeira.md).
+
+## Complemento V1.5.0 — Descrição do produto
+
+`Product.description`: `TextField(blank=True, default='')`, opcional com validação de até 2000 caracteres no serializer. Os registros anteriores são migrados para string vazia pela migração `0010_product_description`. Não afeta as relações com imagem, lotes, estoque, vendas ou histórico financeiro.

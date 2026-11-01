@@ -18,7 +18,7 @@ test('operação idempotente protege cadastros, vendas e ajustes', () => {
 
 test('primeiro acesso é seletivo, gráficos podem atualizar sem recarregar tudo', () => {
   const app = read('src/App.vue')
-  assert.match(app, /refreshResources\(\['products', 'categories', 'dashboard'\]/)
+  assert.match(app, /refreshResources\(\[\.\.\.new Set\(\['products', 'categories'/)
   assert.match(app, /function refreshVisibleData\(/)
   assert.match(app, /chartCache\.set\(/)
   assert.match(app, /chartUpdatedAt/)

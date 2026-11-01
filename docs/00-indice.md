@@ -56,3 +56,5 @@ O conjunto `01`–`16` permanece como documentação funcional e acadêmica de b
 ## Funcionalidades V1.4.0
 
 - [Gestão financeira: lucro bruto, despesas, compras, investimentos, Excel, API, casos de uso e testes](25-gestao-financeira.md)
+
+- [Cadastro de produtos, descrição, rotas e visualização (V1.5.0)](26-cadastro-descricao-rotas-visualizacao.md)

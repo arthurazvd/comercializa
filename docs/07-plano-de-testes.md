@@ -113,3 +113,7 @@ Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-
 - `backend/tests/test_sale_reversal.py`: `GET /api/operations/<chave>/` deve devolver a confirmação de uma venda gravada, e uma chave inexistente deve retornar `404`.
 - Rodar `cd backend && pytest --cov=core --cov-report=term-missing --cov-report=xml:coverage.xml`. É obrigatório obter sucesso nas duas tarefas do GitHub Actions antes de aprovar uma implantação.
 - Após o deploy, realizar **teste manual controlado** de uma venda e uma movimentação, comparando saldos e IDs antes/depois de repetir a mesma chave. Não utilizar dados reais sensíveis nem executar repetição de operações em produção indiscriminadamente.
+
+## Cobertura adicional V1.5.0
+
+Frontend: `navigation-and-product-v150.test.js` — rotas, URL do Financeiro, finalização do cadastro, descrição, zoom e foco do catálogo. Backend: `test_product_description_v150.py` — persistência de descrição, campo opcional e limite de 2000 caracteres. Validar manualmente no Render e em dispositivo móvel o timeout, a fotografia e o recarregamento em URLs internas.

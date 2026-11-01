@@ -9,6 +9,7 @@ import ProductThumbnail from './components/ProductThumbnail.vue'
 import { normalizeProductPhoto } from './imageProcessing'
 import { addOrIncrementCartItem } from './cart'
 import { APP_VERSION } from './version'
+import { tabFromPath, pathForTab, isKnownPagePath, isFinancePath, FINANCE_PATH } from './navigation'
 import DecisionChart from './components/DecisionChart.vue'
 import { sortedSaleOptions, MOVEMENT_REASONS, movementNote, periodDates, aggregateDaily, productChartData, rankingDonutRows, concentrationPercentage } from './charts'
 import { createToastController } from './toast'
@@ -26,7 +27,7 @@ const authStartupError = ref('')
 const loginBusy = ref(false)
 const loginForm = ref({ username: '', password: '' })
 const loginError = ref('')
-const tab = ref('dashboard')
+const tab = ref(tabFromPath(window.location.pathname))
 const products = ref([])
 const categories = ref([])
 const dashboard = ref(null)
@@ -47,7 +48,7 @@ const FINANCIAL_CATEGORIES = [
   ['equipamentos', 'Equipamentos'], ['outros', 'Outros'],
 ]
 
-const modal = ref('')
+const modal = ref(isFinancePath(window.location.pathname) ? 'finance' : '')
 const theme = ref(readTheme())
 const copyrightYear = ref(getCopyrightYear())
 let yearRefreshInterval
@@ -73,6 +74,9 @@ const receiptUpdateReference = ref(true)
 const receiptNewSalePrice = ref('')
 const receiptUpdateSalePrice = ref(false)
 const stockDetailProduct = ref(null)
+const imageViewerProduct = ref(null)
+const imageViewerReturn = ref('')
+const imageViewerMode = ref('crop')
 const stockDetailLots = ref([])
 const stockDetailLoading = ref(false)
 const stockDetailError = ref('')
@@ -82,8 +86,10 @@ const stockProduct = ref('')
 const stockDelta = ref(1)
 const categoryName = ref('')
 const reportFilters = ref(defaultReportFilters())
-const blankProduct = () => ({ perishable: false, id: null, name: '', category: '', sku: '', purchase_price: 0, sale_price: 0, stock: 0, minimum_stock: 0, expiration_date: '', active: true })
+const blankProduct = () => ({ perishable: false, id: null, name: '', description: '', category: '', sku: '', purchase_price: 0, sale_price: 0, stock: 0, minimum_stock: 0, expiration_date: '', active: true })
 const productForm = ref(blankProduct())
+const productSaveMessage = ref('')
+const productSaveStage = ref('product')
 const productPhoto = ref(null)
 const photoPreviewUrl = ref('')
 const photoBusy = ref(false)
@@ -271,10 +277,10 @@ const modalItems = computed(() => {
   if (modal.value === 'vencido' || modal.value === 'a_vencer') return filteredInventory(products.value, '', modal.value)
   return []
 })
-const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas', 'sale-reversal': 'Estornar venda', 'product-photo': 'Foto do produto', 'stock-product': 'Detalhes do produto' }
+const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas', 'sale-reversal': 'Estornar venda', 'product-photo': 'Foto do produto', 'product-image': 'Visualizar foto do produto', 'stock-product': 'Detalhes do produto' }
 
 watch(theme, value => { document.documentElement.dataset.theme = value; saveTheme(value) }, { immediate: true })
-watch(modal, value => { document.body.style.overflow = value ? 'hidden' : ''; if (value !== 'product-photo') resetCatalogPhoto() })
+watch(modal, value => { document.body.style.overflow = value ? 'hidden' : ''; if (value !== 'product-photo') resetCatalogPhoto() }, { immediate: true })
 watch(() => reportFilters.value.category, () => { reportFilters.value.product = '' })
 watch(() => selectedMovementProduct.value?.id, () => {
   receiptUnitCost.value = selectedMovementProduct.value ? Number(selectedMovementProduct.value.purchase_price) : ''
@@ -288,15 +294,38 @@ watch(chartPeriod, period => {
   void refreshDashboardCharts()
 })
 watch(tab, selected => {
+  const target = pathForTab(selected)
+  if (!isFinancePath(window.location.pathname) && window.location.pathname !== target) {
+    window.history.pushState({ comercializaTab: selected }, '', target)
+  }
+})
+watch(authenticated, value => {
+  if (value && modal.value === 'finance') void refreshFinance()
+})
+function onHistoryNavigation() {
+  if (isFinancePath(window.location.pathname)) {
+    modal.value = 'finance'
+    if (authenticated.value) void refreshFinance()
+    return
+  }
+  if (modal.value) {
+    imageViewerReturn.value = '' // voltar/avançar fecha qualquer janela sobreposta
+    closeModal()
+  }
+  tab.value = tabFromPath(window.location.pathname)
+}
+
+watch(tab, selected => {
   if (!authenticated.value) return
-  const onDemand = { dashboard: ['dashboard'], sales: ['sales'], products: ['products', 'categories'], inventory: ['stockOverview', 'products'], movements: ['movements', 'products'] }
-  void refreshResources(onDemand[selected] || [])
+  void refreshResources(PAGE_RESOURCES[selected] || [])
   if (selected === 'dashboard') void refreshDashboardCharts({ silent: true, force: true })
 })
 watch(stockProduct, () => { stockExpiry.value = '' })
 watch(stockDelta, value => { if (Number(value) <= 0) { stockExpiry.value = ''; if (stockReason.value === 'recebimento' || stockReason.value === 'devolucao') stockReason.value = 'avaria' } else if (stockReason.value === 'avaria' || stockReason.value === 'perda') stockReason.value = 'recebimento' })
 function onKeydown(event) { if (event.key === 'Escape') closeModal() }
 onMounted(() => {
+  if (!isKnownPagePath(window.location.pathname)) window.history.replaceState({}, '', pathForTab(tab.value))
+  window.addEventListener('popstate', onHistoryNavigation)
   window.addEventListener('keydown', onKeydown)
   yearRefreshInterval = window.setInterval(() => { copyrightYear.value = getCopyrightYear() }, 60_000)
   activeRefreshInterval = window.setInterval(() => {
@@ -314,6 +343,7 @@ onMounted(() => {
   initializeSession()
 })
 onUnmounted(() => {
+  window.removeEventListener('popstate', onHistoryNavigation)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('comercializa:unauthorized', onUnauthorized)
   window.clearInterval(yearRefreshInterval)
@@ -369,7 +399,7 @@ async function initializeSession() {
     authUsername.value = data.username || ''
     if (authenticated.value) {
       void loadAll()
-      void refreshDashboardCharts({ silent: true })
+      if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true })
     } else if (getAuthToken()) {
       clearAuthToken()
     }
@@ -416,6 +446,7 @@ async function signOut() {
   onUnauthorized()
   loginError.value = ''
   tab.value = 'dashboard'
+  if (isFinancePath(window.location.pathname)) window.history.replaceState({}, '', pathForTab('dashboard'))
   modal.value = ''
   dashboardReport.value = null
 }
@@ -494,12 +525,20 @@ async function refreshResources(names, { force = false } = {}) {
   // automáticas são frequentes e dados anteriormente carregados seguem válidos.
   return !failed.length
 }
+const PAGE_RESOURCES = {
+  dashboard: ['dashboard'], sales: ['sales', 'products'],
+  products: ['products', 'categories'], inventory: ['stockOverview', 'products'],
+  movements: ['movements', 'products'],
+}
 async function loadAll() {
   loading.value = true
-  // Carrega só o necessário para a primeira tela; histórico e estoque sob demanda.
-  try { await refreshResources(['products', 'categories', 'dashboard']) }
-  finally { loading.value = false }
+  // A URL inicial também determina os dados carregados; F5 em /estoque e /vendas
+  // não pode depender de um watch(tab) que só dispara quando a aba muda.
+  try {
+    await refreshResources([...new Set(['products', 'categories', ...(PAGE_RESOURCES[tab.value] || ['dashboard'])])])
+  } finally { loading.value = false }
 }
+
 function invalidateResource(...names) {
   for (const name of names) {
     resourceLoader.invalidate(name)
@@ -516,59 +555,75 @@ function refreshVisibleData() {
   void refreshResources(names[tab.value] || ['dashboard'], { force: true })
   if (tab.value === 'dashboard') void refreshDashboardCharts({ force: true })
 }
-function resetProduct() { clearPhotoState(); productForm.value = blankProduct() }
+function resetProduct() { clearPhotoState(); productSaveMessage.value = ''; productForm.value = blankProduct() }
 function editProduct(product) {
   clearPhotoState()
-  productForm.value = { ...product, category: product.category ?? '', expiration_date: product.expiration_date ?? '' }
+  productSaveMessage.value = ''
+  productForm.value = { ...product, description: product.description ?? '', category: product.category ?? '', expiration_date: product.expiration_date ?? '' }
   tab.value = 'products'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 async function saveProduct() {
   if (busy.value || photoBusy.value) return
   busy.value = true
+  productSaveStage.value = 'product'
+  productSaveMessage.value = ''
   photoError.value = ''
   const payload = { ...productForm.value, category: productForm.value.category || null,
     sku: productForm.value.sku || null, expiration_date: productForm.value.expiration_date || null }
   const wasEditing = Boolean(payload.id)
   let saved = null
+  let confirmed = false
   try {
     const response = wasEditing
-      ? await api.put(`products/${payload.id}/`, payload)
-      : await postWithRecovery('products/', payload)
+      ? await api.put(`products/${payload.id}/`, payload, { timeout: 40000 })
+      : await postWithRecovery('products/', payload, { timeout: 40000 })
+    // 2xx é confirmação suficiente. Nenhum POST ou GET de confirmação extra.
     saved = response.data
-  } catch (error) {
-    notifyWriteFailure(error)
-    busy.value = false
-    return
-  }
-  // Uma eventual falha na foto NÃO significa falha no cadastro do produto.
-  // Em novos cadastros, conservamos o id para tentar a foto via edição, sem duplicar.
-  productForm.value.id = saved.id
-  try {
-    if (productPhoto.value) {
-      const form = new FormData()
-      form.append('image', productPhoto.value, productPhoto.value.name)
-      const upload = await api.put(`products/${saved.id}/image/`, form)
-      saved = { ...saved, ...upload.data }
-    } else if (removePhoto.value && wasEditing) {
-      const removed = await api.delete(`products/${saved.id}/image/`)
-      saved = { ...saved, ...removed.data }
+    confirmed = true
+    if (!saved?.id) throw new Error('API confirmou o cadastro sem informar o ID do produto.')
+    // A partir daqui, qualquer exceção de interface/foto não desfaz o cadastro.
+    productForm.value.id = saved.id
+    try {
+      if (productPhoto.value || (removePhoto.value && wasEditing)) productSaveStage.value = 'photo'
+      if (productPhoto.value) {
+        const form = new FormData()
+        form.append('image', productPhoto.value, productPhoto.value.name)
+        const upload = await api.put(`products/${saved.id}/image/`, form, { timeout: 30000 })
+        saved = { ...saved, ...upload.data }
+      } else if (removePhoto.value && wasEditing) {
+        const removed = await api.delete(`products/${saved.id}/image/`, { timeout: 30000 })
+        saved = { ...saved, ...removed.data }
+      }
+    } catch (photoFailure) {
+      photoError.value = `Produto salvo, mas não foi possível atualizar a foto. ${errorText(photoFailure)}`
+      products.value = upsertById(products.value, saved)
+      refreshCatalogInBackground()
+      // Mantém a edição aberta para que a foto possa ser reenviada sem recadastrar.
+      return
     }
-  } catch (error) {
-    photoError.value = `Produto salvo, mas a foto não foi atualizada. ${errorText(error)}`
     products.value = upsertById(products.value, saved)
-    invalidateResource('products')
+    resetProduct()
+    alertUser(wasEditing ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
     refreshCatalogInBackground()
-    alertUser('Produto salvo. Confira a foto antes de continuar.', 'error')
+  } catch (error) {
+    if (confirmed) {
+      console.error('Produto confirmado, mas houve erro na atualização da interface:', error)
+      // O servidor já salvou; nunca exibir "falha de cadastro" por erro local.
+      if (saved?.id) products.value = upsertById(products.value, saved)
+      productSaveMessage.value = 'Produto salvo. Atualize a lista para conferir os dados.'
+      refreshCatalogInBackground()
+    } else {
+      notifyWriteFailure(error)
+      if (isTransientFailure(error) || error?.code === 'COMERCIALIZA_WRITE_PENDING') {
+        productSaveMessage.value = 'Sem resposta da API. Confira o catálogo antes de enviar de novo; o produto pode ter sido cadastrado.'
+      }
+    }
+  } finally {
+    // Destrava o formulário inclusive em erro de imagem, erro reativo e timeout.
+    productSaveStage.value = 'product'
     busy.value = false
-    return
   }
-  products.value = upsertById(products.value, saved)
-  invalidateResource('products')
-  resetProduct()
-  alertUser(wasEditing ? 'Produto atualizado com sucesso.' : 'Produto cadastrado com sucesso.')
-  refreshCatalogInBackground()
-  busy.value = false
 }
 
 async function toggleProduct(product) {
@@ -788,8 +843,36 @@ async function openInventoryProduct(product) {
     if (sequence === stockDetailSequence) stockDetailError.value = 'Não foi possível carregar os lotes agora.'
   } finally { if (sequence === stockDetailSequence) stockDetailLoading.value = false }
 }
-function openModal(type) { modal.value = type; if (type === 'finance') refreshFinance() }
-function closeModal() { if (catalogPhotoBusy.value && modal.value === 'product-photo') return; ++stockDetailSequence; modal.value = ''; stockDetailProduct.value = null; saleToReverse.value = null }
+function openProductImage(product) {
+  if (!product?.has_image) return
+  imageViewerProduct.value = product
+  imageViewerReturn.value = modal.value === 'stock-product' ? 'stock-product' : ''
+  imageViewerMode.value = 'crop'
+  modal.value = 'product-image'
+}
+function openModal(type) {
+  modal.value = type
+  if (type === 'finance') {
+    if (!isFinancePath(window.location.pathname)) window.history.pushState({ comercializaTab: tab.value }, '', FINANCE_PATH)
+    if (authenticated.value) void refreshFinance()
+  }
+}
+function closeModal() {
+  if (catalogPhotoBusy.value && modal.value === 'product-photo') return
+  if (modal.value === 'finance' && isFinancePath(window.location.pathname)) {
+    window.history.replaceState({}, '', pathForTab(tab.value))
+  }
+  if (modal.value === 'product-image' && imageViewerReturn.value === 'stock-product' && stockDetailProduct.value) {
+    modal.value = 'stock-product'; imageViewerReturn.value = ''; imageViewerProduct.value = null
+    return
+  }
+  ++stockDetailSequence
+  modal.value = ''
+  stockDetailProduct.value = null
+  imageViewerProduct.value = null
+  imageViewerReturn.value = ''
+  saleToReverse.value = null
+}
 function openInventory(status = 'all') { tab.value = 'inventory'; stockFilter.value = status; closeModal() }
 async function refreshFinance() {
   if (!reportFilters.value.start || !reportFilters.value.end || reportFilters.value.start > reportFilters.value.end) { alertUser('Corrija o intervalo de datas.', 'error'); return }
@@ -943,7 +1026,7 @@ function labelStatus(p) {
     </section>
 
     <section v-if="tab === 'products'"><header class="page-header"><div><span class="eyebrow">CATÁLOGO / CADASTROS</span><h1>Produtos<span class="title-accent">.</span></h1><p>Cadastre e organize os itens de sua loja.</p></div><span class="header-count">{{ products.length }} itens cadastrados</span></header>
-      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<NumericField v-model="productForm.purchase_price" label="preço de compra" :min="0" step="0.01" :button-step="1" required /></label><label>Preço de venda<NumericField v-model="productForm.sale_price" label="preço de venda" :min="0" step="0.01" :button-step="1" required /></label></div><div class="form-row"><label>Saldo inicial / atual<NumericField v-model="productForm.stock" label="saldo de estoque" :min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<NumericField v-model="productForm.minimum_stock" label="estoque mínimo" :min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label>
+      <div class="grid-form"><div class="stack"><form class="panel" @submit.prevent="saveProduct"><div class="panel-heading"><div><span class="eyebrow">GESTÃO DO CATÁLOGO</span><h2>{{ productForm.id ? 'Editar produto' : 'Cadastrar produto' }}</h2></div><AppIcon name="products" /></div><label>Nome do produto<input v-model="productForm.name" required maxlength="150" placeholder="Ex.: Pote plástico 1 litro" /></label><label>Descrição (opcional)<textarea v-model="productForm.description" maxlength="2000" rows="3" placeholder="Detalhes, materiais, tamanho ou características do produto..."></textarea><small class="help-text">Até 2.000 caracteres. Visível nos detalhes do produto.</small></label><div class="form-row"><label>Categoria<select v-model="productForm.category"><option value="">Sem categoria</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>SKU<input v-model="productForm.sku" maxlength="50" placeholder="Opcional" /></label></div><div class="form-row"><label>Preço de compra<NumericField v-model="productForm.purchase_price" label="preço de compra" :min="0" step="0.01" :button-step="1" required /></label><label>Preço de venda<NumericField v-model="productForm.sale_price" label="preço de venda" :min="0" step="0.01" :button-step="1" required /></label></div><div class="form-row"><label>Saldo inicial / atual<NumericField v-model="productForm.stock" label="saldo de estoque" :min="0" required :disabled="Boolean(productForm.id && productForm.perishable)" /><small v-if="productForm.id && productForm.perishable" class="help-text">Para receber mais unidades, vá a Movimentações e informe a validade.</small></label><label>Estoque mínimo<NumericField v-model="productForm.minimum_stock" label="estoque mínimo" :min="0" required /></label></div><label class="check-label"><input v-model="productForm.perishable" type="checkbox" /> Produto perecível (controlar validade por lote)</label><label>{{ productForm.perishable ? 'Validade do saldo inicial / legado' : 'Validade (se aplicável)' }}<input v-model="productForm.expiration_date" type="date" :required="productForm.perishable && Number(productForm.stock) > 0 && !productForm.id" /></label><label class="check-label"><input v-model="productForm.active" type="checkbox" /> Produto ativo</label>
             <div class="product-photo-editor">
               <div class="photo-preview">
                 <img v-if="photoPreviewUrl" :src="photoPreviewUrl" alt="Prévia da nova fotografia do produto" />
@@ -964,8 +1047,8 @@ function labelStatus(p) {
                 <small v-if="removePhoto && !productPhoto">A foto atual será removida ao salvar.</small>
                 <p v-if="photoError" class="photo-error" role="alert">{{ photoError }}</p>
               </div>
-            </div><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy || photoBusy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? 'Salvando…' : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
-      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><ProductThumbnail :product-id="p.id" :updated-at="p.image_updated_at" :name="p.name" /><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small></div><div class="catalog-actions inline-actions"><button type="button" class="catalog-photo-action" :aria-label="`${p.has_image ? 'Alterar' : 'Adicionar'} foto de ${p.name}`" @click="openCatalogPhoto(p)"><AppIcon name="camera" :size="15" /> {{ p.has_image ? 'Alterar foto' : 'Adicionar foto' }}</button><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :aria-label="`Excluir ${p.name}`" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></article></div>
+            </div><div class="form-actions"><button class="btn primary" type="submit" :disabled="busy || photoBusy"><AppIcon :name="productForm.id ? 'check' : 'add'" :size="16" />{{ busy ? (productSaveStage === 'photo' ? 'Salvando foto…' : 'Salvando…') : productForm.id ? 'Salvar alterações' : 'Cadastrar produto' }}</button><button v-if="productForm.id" class="btn secondary" type="button" @click="resetProduct">Cancelar</button></div><p v-if="productSaveMessage" class="product-save-hint" role="status">{{ productSaveMessage }}</p><p class="help-text">Para entradas e saídas de estoque use Movimentações: cada ajuste fica registrado.</p></form><form class="panel" @submit.prevent="addCategory"><div class="panel-heading"><h2>Nova categoria</h2></div><label>Nome<input v-model="categoryName" maxlength="100" required placeholder="Ex.: Utilidades domésticas" /></label><button type="submit" class="btn secondary" :disabled="busy"><AppIcon name="add" :size="16" />{{ busy ? 'Salvando…' : 'Adicionar categoria' }}</button></form></div>
+      <article class="panel catalog"><div class="panel-heading"><div><span class="eyebrow">PRODUTOS CADASTRADOS</span><h2>Catálogo</h2></div><span class="count-pill">{{ visibleProducts.length }} resultados</span></div><div class="filters"><label class="search-input"><AppIcon name="search" :size="17" /><input v-model="search" type="search" placeholder="Buscar por produto, SKU ou categoria" aria-label="Pesquisar produtos" /></label><select v-model="filter" aria-label="Situação"><option value="all">Todos</option><option value="active">Ativos</option><option value="low">Estoque crítico</option><option value="inactive">Inativos</option></select></div><div v-if="!visibleProducts.length" class="empty">Nenhum produto encontrado.</div><div v-for="p in visibleProducts" :key="p.id" class="catalog-item"><button type="button" class="photo-view-button catalog-photo-button" :disabled="!p.has_image" :aria-label="`Ampliar foto de ${p.name}`" @click="openProductImage(p)"><ProductThumbnail :product-id="p.id" :updated-at="p.image_updated_at" :name="p.name" /></button><div class="product-info"><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><small v-if="p.description" class="catalog-description">{{ p.description }}</small><span :class="['tag', !p.active ? 'muted-tag' : p.stock <= p.minimum_stock ? 'warning-tag' : 'ok-tag']">{{ !p.active ? 'Inativo' : p.stock <= p.minimum_stock ? 'Reposição' : 'Disponível' }}</span></div><div class="product-pricing"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.stock }} unidades</small></div><div class="catalog-actions inline-actions"><button type="button" class="catalog-photo-action" :aria-label="`${p.has_image ? 'Alterar' : 'Adicionar'} foto de ${p.name}`" @click="openCatalogPhoto(p)"><AppIcon name="camera" :size="15" /> {{ p.has_image ? 'Alterar foto' : 'Adicionar foto' }}</button><button @click="editProduct(p)"><AppIcon name="edit" :size="14" /> Editar</button><button :disabled="busy" @click="toggleProduct(p)">{{ p.active ? 'Desativar' : 'Ativar' }}</button><button class="danger-text" :aria-label="`Excluir ${p.name}`" :disabled="busy" @click="deleteProduct(p)"><AppIcon name="trash" :size="14" /></button></div></div></article></div>
     </section>
 
     <section v-if="tab === 'sales'">
@@ -1025,7 +1108,7 @@ function labelStatus(p) {
     </footer>
   </main>
 
-  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : modal === 'product-photo' ? 'CATÁLOGO / IMAGEM' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
+  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : modal === 'product-photo' || modal === 'product-image' ? 'CATÁLOGO / IMAGEM' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
     <template v-if="modal === 'finance'">
       <div class="modal-body financial-modal-body">
         <p class="help-text">Consulte vendas, lucro bruto, despesas lançadas e investimentos. Os custos das mercadorias são reconhecidos na <strong>venda</strong>; as compras para estoque são mostradas à parte.</p>
@@ -1114,11 +1197,25 @@ function labelStatus(p) {
         <button type="button" class="btn primary" :disabled="catalogPhotoBusy || !catalogPhotoFile" @click="saveCatalogPhoto">{{ catalogPhotoBusy ? 'Salvando…' : 'Salvar foto' }}</button>
       </footer>
     </template>
+    <template v-else-if="modal === 'product-image' && imageViewerProduct">
+      <div class="modal-body product-image-dialog">
+        <div :class="['product-image-canvas', { 'show-entire': imageViewerMode === 'entire' }]">
+          <ProductThumbnail :product-id="imageViewerProduct.id" :updated-at="imageViewerProduct.image_updated_at" :name="imageViewerProduct.name" size="viewer" />
+        </div>
+        <div class="product-image-info"><strong>{{ imageViewerProduct.name }}</strong><small>{{ imageViewerProduct.sku || 'Sem SKU' }} · {{ imageViewerProduct.category_name || 'Sem categoria' }}</small><p v-if="imageViewerProduct.description">{{ imageViewerProduct.description }}</p></div>
+        <div class="photo-view-modes" role="group" aria-label="Enquadramento da foto">
+          <button type="button" :class="['btn', imageViewerMode === 'crop' ? 'primary' : 'secondary']" @click="imageViewerMode = 'crop'">Preencher espaço</button>
+          <button type="button" :class="['btn', imageViewerMode === 'entire' ? 'primary' : 'secondary']" @click="imageViewerMode = 'entire'">Ver foto inteira</button>
+        </div>
+        <small class="help-text">O enquadramento altera apenas a visualização. O arquivo original não é recortado.</small>
+      </div>
+      <footer class="modal-footer"><button class="btn secondary" type="button" @click="closeModal">{{ imageViewerReturn ? 'Voltar aos detalhes' : 'Fechar' }}</button></footer>
+    </template>
     <template v-else-if="modal === 'stock-product' && stockDetailProduct">
       <div class="modal-body stock-detail-modal">
         <div class="stock-detail-main">
-          <ProductThumbnail :product-id="stockDetailProduct.id" :updated-at="stockDetailProduct.image_updated_at" :name="stockDetailProduct.name" size="inventory" />
-          <div class="stock-detail-description"><span class="eyebrow">{{ stockDetailProduct.category_name || 'Sem categoria' }}</span><h3>{{ stockDetailProduct.name }}</h3><small>SKU: {{ stockDetailProduct.sku || 'Não informado' }}</small><div class="stock-detail-stats"><span><small>Em estoque</small><strong>{{ stockDetailProduct.stock }} un.</strong></span><span><small>Preço de venda</small><strong>{{ money(stockDetailProduct.sale_price) }}</strong></span><span><small>Custo médio do saldo</small><strong>{{ money(stockItemOverview.get(stockDetailProduct.id)?.average_cost ?? stockDetailProduct.purchase_price) }}</strong></span></div></div>
+          <button type="button" class="photo-view-button stock-detail-photo" :disabled="!stockDetailProduct.has_image" :aria-label="`Ampliar fotografia de ${stockDetailProduct.name}`" @click="openProductImage(stockDetailProduct)"><ProductThumbnail :product-id="stockDetailProduct.id" :updated-at="stockDetailProduct.image_updated_at" :name="stockDetailProduct.name" size="inventory" /><span v-if="stockDetailProduct.has_image" class="photo-zoom-hint">Clique para ampliar</span></button>
+          <div class="stock-detail-description"><span class="eyebrow">{{ stockDetailProduct.category_name || 'Sem categoria' }}</span><h3>{{ stockDetailProduct.name }}</h3><small>SKU: {{ stockDetailProduct.sku || 'Não informado' }}</small><p v-if="stockDetailProduct.description" class="product-detail-copy">{{ stockDetailProduct.description }}</p><div class="stock-detail-stats"><span><small>Em estoque</small><strong>{{ stockDetailProduct.stock }} un.</strong></span><span><small>Preço de venda</small><strong>{{ money(stockDetailProduct.sale_price) }}</strong></span><span><small>Custo médio do saldo</small><strong>{{ money(stockItemOverview.get(stockDetailProduct.id)?.average_cost ?? stockDetailProduct.purchase_price) }}</strong></span></div></div>
         </div>
         <div class="stock-lots-heading"><h3>Lotes e custos de compra</h3><small>Custos históricos mantidos por entrada</small></div>
         <p v-if="stockDetailLoading" class="help-text">Carregando os lotes…</p>

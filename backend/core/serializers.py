@@ -23,6 +23,7 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(required=False, allow_blank=True, max_length=2000)
     category_name = serializers.CharField(source="category.name", read_only=True)
     available_stock = serializers.SerializerMethodField()
     expired_units = serializers.SerializerMethodField()
@@ -38,7 +39,7 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "category", "category_name", "sku",
+            "id", "name", "description", "category", "category_name", "sku",
             "purchase_price", "sale_price", "margin", "stock",
             "minimum_stock", "expiration_date", "perishable", "active", "created_at",
             "available_stock", "expired_units", "expiring_units", "nearest_expiration",

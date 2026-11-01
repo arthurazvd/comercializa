@@ -107,7 +107,7 @@ function newOperationId() {
  * mesma Idempotency-Key para um eventual clique posterior, sem duplicar dados.
  * Não afirmamos sucesso nem erro quando a resposta não chegou.
  */
-export async function postWithRecovery(url, payload) {
+export async function postWithRecovery(url, payload, { timeout = 95000 } = {}) {
   const signature = `${url}:${JSON.stringify(payload)}`
   const storedName = await pendingStorageName(signature)
   const key = pendingPosts.get(signature) || pendingFromStorage(storedName) || newOperationId()
@@ -116,7 +116,7 @@ export async function postWithRecovery(url, payload) {
   try {
     const response = await api.post(url, payload, {
       headers: { 'Idempotency-Key': key },
-      timeout: 95000,
+      timeout,
     })
     // Axios resolve somente os status de sucesso (2xx).
     finishPendingOperation(signature, storedName)

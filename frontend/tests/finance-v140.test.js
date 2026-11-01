@@ -27,5 +27,5 @@ test('financial section is responsive and version is semver', () => {
   assert.match(css, /financial-kpis/)
   assert.match(css, /financial-entry-row/)
   assert.match(css, /@media\(max-width:560px\)/)
-  assert.match(version, /1\.4\.0/)
+  assert.match(version, /\b1\.5\.0\b/)
 })

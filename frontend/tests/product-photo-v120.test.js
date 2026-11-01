@@ -43,9 +43,9 @@ test('cadastro e edição oferecem captura da câmera, galeria, remoção e pré
 })
 test('salva produto antes da foto e guarda id quando upload falha, para não duplicar', () => {
   assert.match(app, /saved = response\.data[\s\S]*?productForm\.value\.id = saved\.id/)
-  assert.match(app, /api\.put\(`products\/\$\{saved\.id\}\/image\/`, form\)/)
-  assert.match(app, /Produto salvo, mas a foto não foi atualizada/)
-  assert.match(app, /api\.delete\(`products\/\$\{saved\.id\}\/image\/`\)/)
+  assert.match(app, /api\.put\(`products\/\$\{saved\.id\}\/image\/`, form/)
+  assert.match(app, /Produto salvo, mas não foi possível atualizar a foto/)
+  assert.match(app, /api\.delete\(`products\/\$\{saved\.id\}\/image\/`/)
 })
 test('o backend isola fotos dos JSONs de listagem, exige autenticação e usa banco persistente', () => {
   const models = read('../../backend/core/models.py')
