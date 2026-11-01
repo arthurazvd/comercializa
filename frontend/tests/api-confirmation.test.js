@@ -106,7 +106,6 @@ test('erro na atualização da tela após HTTP 201 não produz toast de falha de
     `${appSource.slice(start, end)}; return applyConfirmedWrite`)
   const handle = createHandler({ error() {} }, (text, type = 'success') => notifications.push({ text, type }), () => { refreshes += 1 })
   handle(() => { throw new TypeError('Falha no componente após HTTP 201') }, { status: 201, data: { id: 1 } })
-  assert.equal(notifications.length, 1)
-  assert.equal(notifications[0].type, 'success')
+  assert.equal(notifications.length, 0)
   assert.equal(refreshes, 1)
 })

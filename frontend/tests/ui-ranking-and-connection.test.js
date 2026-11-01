@@ -27,5 +27,5 @@ test('sem banner de verificação nem consultas extras de comprovante', () => {
   const api = readFileSync(new URL('../src/api.js', import.meta.url), 'utf8')
   assert.doesNotMatch(app, /writeConfirmationPending|pending-write-banner|Consultar dados/)
   assert.doesNotMatch(api, /continueConfirmation|findConfirmedPost|operations\/\$\{key\}\//)
-  assert.match(app, /Versão 09/)
+  assert.match(app, /Versão 10/)
 })

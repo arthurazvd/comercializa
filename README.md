@@ -1,3 +1,18 @@
+# Comercializa
+
+Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércios.
+
+O repositório contém `backend/` (Django/DRF), `frontend/` (Vue/Vite) e `docs/` (documentação).
+
+## Atualização 10 (correção de mensagens e busca no PDV)
+
+- Nenhuma consulta de comprovante após um POST bem-sucedido: HTTP 2xx é sucesso.
+- Avisos genéricos de API e exceções sem resposta HTTP não geram pop-ups de erro na operação. As consultas de reconciliação seguem silenciosas; **ausência de erro não significa confirmação de gravação**. O formulário permanece intacto se não houver confirmação.
+- Só mensagens de validação/permissão claras devolvidas pelo servidor (4xx com corpo legível) aparecem na tela. Falhas de transporte/5xx ficam no console para suporte técnico.
+- Se a conexão se perder, a tentativa manual da mesma operação mantém a Idempotency-Key, evitando duplicação.
+- O seletor do PDV agora é um painel expansível dentro do formulário, sem flutuar sobre a lista de itens. Borda única de foco, botão para limpar e lista alfabética responsiva.
+- Publicar somente `frontend` no Cloudflare Pages; backend e banco não mudaram nesta atualização. Verificar **Versão 10** no rodapé após deploy e recarregamento.
+
 ## Atualização 09 — confirmação simples de gravações (01/11/2026)
 
 - O aplicativo aceita o **status HTTP 2xx** (incluindo `201 Created`) como sucesso do cadastro, sem consulta adicional a `operations/<chave>/`.
@@ -13,16 +28,6 @@
 - **Operações com resposta não confirmada:** em vez de afirmar sucesso ou exibir erro genérico de conexão, aparece um aviso discreto e persistente para o usuário conferir o histórico antes de repetir a ação. Falhas reais de validação continuam visíveis.
 - **Relatórios e exportações:** mensagens de erro específicas e botão de nova tentativa quando aplicável; não se mascara uma exportação que falhou.
 - Esta versão modifica apenas o frontend. Se o Render já estiver na versão 06/07, não é necessário migrar o banco para esta atualização.
-
-# Comercializa
-
-Sistema de Apoio à Decisão (SAD) para lojas de variedades e pequenos comércios.
-
-O repositório foi separado em:
-
-- `backend/`: API em Django + Django REST Framework.
-- `frontend/`: interface em Vue 3 + Vite.
-- `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
 
 ## Atualização 07 — correção do aviso falso após HTTP 201 (31/10/2026)
 

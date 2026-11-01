@@ -259,11 +259,6 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 [data-theme="dark"] .toast-notice.success { background: #113e32; color: #a7f9d8; border-color: #265c49; }
 [data-theme="dark"] .toast-notice.error { background: #512532; color: #ffcbd0; border-color: #784251; }
 .sale-panel .panel-heading { margin-bottom: 19px; }
-.sale-draft { display: flex; gap: 12px; align-items: end; padding: 16px; border-radius: 14px; background: var(--canvas); border: 1px solid var(--stroke); }
-.sale-draft .sale-product-field { position: relative; flex: 1; }
-.sale-draft .sale-results { position: absolute; z-index: 35; top: calc(100% + 7px); width: 100%; box-shadow: 0 20px 34px rgba(18, 37, 59, .18); max-height: 290px; }
-.sale-draft .qty-label { flex: 0 0 89px; }
-.sale-draft > button { flex: 0 0 auto; min-height: 39px; }
 .draft-selected { display: flex; align-items: center; gap: 4px; color: #0da37b; font-size: 11px; }
 .cart-heading { display: flex; justify-content: space-between; align-items: center; margin-top: 25px; border-bottom: 1px solid var(--stroke); padding-bottom: 13px; }
 .cart-heading h3 { margin: 0; font-size: 13px; }
@@ -308,10 +303,6 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 @media (max-width: 850px) { .brand { padding-bottom: 13px; } }
 @media (max-width: 620px) {
   .toast-notice { right: 14px; top: 14px; }
-  .sale-draft { flex-wrap: wrap; padding: 12px; }
-  .sale-draft .sale-product-field { flex: 1 1 100%; }
-  .sale-draft .qty-label { flex: 1 0 75px; }
-  .sale-draft .sale-results { max-height: 225px; }
   .cart-line { gap: 8px; flex-wrap: wrap; }
   .cart-line-name { flex: 1 1 calc(100% - 100px); }
   .cart-line .qty-label { flex: 0 0 68px; }
@@ -411,7 +402,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .dashboard-chart-toolbar h2 { font-size: 16px; }
   .donut-layout { gap: 10px; }
   .form-actions .btn { flex: 1 1 120px; min-height: 46px; }
-  .sale-draft > button { min-height: 45px; }
   .catalog-item { gap: 9px; }
   .catalog-item .product-pricing { margin-left: 0; }
   .inline-actions { width: 100%; justify-content: flex-start; gap: 14px; }
@@ -447,25 +437,106 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .chart-data-list > div strong { text-align: right; }
 }
 
-/* Atualização 06 — venda compacta, layout previsível e estorno auditável */
+/* Atualização 10 — seleção de produto sem camadas sobrepostas. */
 .sale-draft {
+  padding: 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: var(--canvas);
+  min-width: 0;
+}
+.sale-draft-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(90px, 106px) max-content;
+  grid-template-columns: minmax(0, 1fr) 94px auto;
   align-items: end;
   gap: 12px;
 }
-.sale-draft .sale-product-field { min-width: 0; }
-.sale-draft .sale-search-box { min-height: 44px; }
-.sale-draft .sale-search-box.is-selected {
-  border-color: #0fa984;
-  box-shadow: 0 0 0 2px rgba(15, 169, 132, .10);
-  color: #079777;
+.sale-draft .sale-product-field { min-width: 0; display: grid; gap: 8px; }
+.sale-draft .sale-product-field > label, .sale-draft .qty-label { font-size: 12px; font-weight: 700; }
+.sale-draft .sale-search-box {
+  min-width: 0;
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--stroke);
+  border-radius: 11px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 13px;
+  transition: border-color .15s, box-shadow .15s;
 }
-.sale-draft .sale-search-box input { flex: 1 1 auto; width: 100%; min-height: 42px; }
-.sale-draft .qty-label { min-width: 0; width: 100%; }
-.sale-draft .qty-label input { width: 100%; min-height: 44px; }
-.sale-draft > button { min-height: 44px; align-self: end; }
-.sale-draft .sale-results { width: 100%; min-width: 0; }
+.sale-draft .sale-search-box:focus-within {
+  border-color: #14b58d;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(15, 169, 132, .13);
+}
+.sale-draft .sale-search-box.is-selected { border-color: #14b58d; }
+.sale-draft .sale-search-box > svg { flex: 0 0 auto; color: #13ad88; }
+.sale-draft .sale-search-box input,
+[data-theme="dark"] .sale-draft .sale-search-box input {
+  flex: 1 1 0; width: 100%; min-width: 0; min-height: 43px;
+  padding: 0; border: none; outline: none; box-shadow: none;
+  background: transparent; color: var(--ink); font-size: 13px;
+}
+.sale-draft .sale-search-box input:focus,
+.sale-draft .sale-search-box input:focus-visible { outline: none; box-shadow: none; }
+.sale-draft .sale-search-box input::placeholder { color: var(--muted); opacity: 1; }
+.sale-draft .sale-search-action {
+  display: grid; place-items: center; flex: 0 0 29px;
+  width: 29px; height: 32px; padding: 0;
+  border: none; border-radius: 7px; background: transparent; color: var(--muted);
+}
+.sale-draft .sale-search-action:hover { color: var(--ink); background: rgba(142, 166, 183, .12); }
+.sale-draft .qty-label { min-width: 0; display: grid; gap: 8px; }
+.sale-draft .qty-label input { width: 100%; min-height: 46px; }
+.sale-draft .sale-add-btn { min-height: 46px; white-space: nowrap; padding-inline: 18px; }
+.sale-draft .sale-results {
+  position: static; z-index: auto; width: 100%; min-width: 0;
+  margin-top: 12px; max-height: 273px; overflow-y: auto;
+  border-radius: 12px; border: 1px solid var(--stroke);
+  background: var(--surface); box-shadow: none;
+  overscroll-behavior: contain;
+}
+.sale-draft .sale-results-heading {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; background: var(--surface); border-bottom: 1px solid var(--stroke);
+  color: var(--muted); font-size: 11px; font-weight: 700;
+}
+.sale-draft .sale-results-heading small { color: var(--muted); font-size: 10px; white-space: nowrap; }
+.sale-draft .sale-results button {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 14px; min-height: 56px; border-bottom: 1px solid var(--stroke);
+  text-align: left;
+}
+.sale-draft .sale-results button:last-of-type { border-bottom: 0; }
+.sale-draft .sale-results button:hover,
+.sale-draft .sale-results button:focus-visible { background: rgba(11, 165, 129, .075); }
+.sale-draft .sale-choice-name { min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.sale-draft .sale-choice-name strong,
+.sale-draft .sale-choice-price strong { display: block; font-family: inherit; font-size: 12px; font-weight: 700; }
+.sale-draft .sale-choice-name small,
+.sale-draft .sale-choice-price small { display: block; margin-top: 5px; font-size: 10px; font-weight: 500; color: var(--muted); }
+.sale-draft .sale-choice-price { flex: 0 0 auto; text-align: right; white-space: nowrap; color: #0aa483; }
+.sale-draft .sale-choice-price strong { color: #0aa483; }
+.sale-draft .sale-results-empty { padding: 18px 12px; }
+@media (max-width: 800px) {
+  .sale-draft-controls { grid-template-columns: minmax(0, 1fr) 95px; gap: 10px; }
+  .sale-draft-controls .sale-product-field { grid-column: 1 / -1; }
+  .sale-draft-controls .sale-add-btn { width: 100%; }
+}
+@container (max-width: 530px) {
+  .sale-draft-controls { grid-template-columns: minmax(0, 1fr) minmax(100px, 42%); gap: 10px; }
+  .sale-draft-controls .sale-product-field { grid-column: 1 / -1; }
+  .sale-draft-controls .sale-add-btn { width: 100%; }
+}
+@media (max-width: 620px) {
+  .sale-draft { padding: 13px; }
+  .sale-draft .sale-search-box input { font-size: 16px; }
+  .sale-draft .sale-results { max-height: min(285px, 46dvh); }
+  .sale-draft .sale-results button { min-height: 62px; }
+}
 .sale-history-main { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
 .sale-history-main > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .sale-history-main .tag { font-size: 9px; padding: 3px 7px; }
@@ -485,33 +556,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .reversal-summary small { flex-basis: 100%; color: var(--muted); }
 .reversal-notice { display: flex; align-items: flex-start; gap: 10px; background: var(--canvas); padding: 13px; border-radius: 10px; border: 1px solid var(--stroke); }
 .reversal-notice svg { flex-shrink: 0; color: #b97b2f; }
-@media (max-width: 800px) {
-  .sale-draft { grid-template-columns: minmax(0,1fr) minmax(90px,110px); gap: 10px; }
-  .sale-draft .sale-product-field { grid-column: 1 / -1; }
-  .sale-draft > button { width: 100%; }
-}
 @media (max-width: 620px) {
-  .sale-draft { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr); padding: 13px; gap: 12px; }
-  .sale-draft .sale-product-field { grid-column: 1 / -1; }
-  .sale-draft .qty-label { min-width: 0; }
-  .sale-draft > button { min-height: 45px; }
   .sale-history-actions { gap: 10px; }
   .sale-history-row { align-items: flex-start; }
   .reversal-form .modal-footer { flex-wrap: wrap; }
   .reversal-form .modal-footer button { flex: 1 1 135px; min-height: 46px; }
 }
 @media (max-width: 360px) {
-  .sale-draft { grid-template-columns: minmax(0, 1fr) 1fr; }
   .sale-history-row { flex-wrap: wrap; }
   .sale-history-actions { flex: 1 1 100%; flex-direction: row; justify-content: space-between; align-items: center; }
 }
 /* A coluna de vendas pode ficar estreita mesmo com viewport desktop. */
 .sale-panel { container-type: inline-size; }
-@container (max-width: 530px) {
-  .sale-draft { grid-template-columns: minmax(0, 1fr) minmax(108px, 145px); }
-  .sale-draft .sale-product-field { grid-column: 1 / -1; }
-  .sale-draft > button { width: 100%; }
-}
 
 /* Atualização 08 — ranking em rosca responsivo, sem rolagem horizontal */
 .top-products-chart { min-width: 0; }

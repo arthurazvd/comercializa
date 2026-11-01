@@ -13,7 +13,7 @@ test('operação idempotente protege cadastros, vendas e ajustes', () => {
   for (const path of ["products/", "categories/", "sales/", "stock-movements/"]) {
     assert.ok(app.includes(`postWithRecovery('${path}'`), path)
   }
-  assert.match(app, /writeErrorText/)
+  assert.match(app, /actionableWriteMessage/)
 })
 
 test('primeiro acesso é seletivo, gráficos podem atualizar sem recarregar tudo', () => {

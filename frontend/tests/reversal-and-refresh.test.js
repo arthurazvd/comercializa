@@ -34,6 +34,6 @@ test('campo selecionado não cria linha extra e mantém alinhamento em mobile', 
   const css = file('src/style.css')
   assert.doesNotMatch(app, /class="draft-selected"/)
   assert.match(app, /\{ 'is-selected': saleDraft\.product \}/)
-  assert.match(css, /\.sale-draft \{\s*display: grid;/)
+  assert.match(css, /\.sale-draft-controls \{\s*display: grid;/)
   assert.match(css, /\.sale-search-box\.is-selected/)
 })

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { api, postWithRecovery, writeErrorText, isTransientFailure, isWritePending, getAuthToken, saveAuthToken, clearAuthToken } from './api'
+import { api, postWithRecovery, isTransientFailure, getAuthToken, saveAuthToken, clearAuthToken } from './api'
+import { actionableWriteMessage } from './operationFeedback'
 import { createLatestLoader, upsertById, removeById } from './dataSync'
 import AppIcon from './components/AppIcon.vue'
 import DecisionChart from './components/DecisionChart.vue'
@@ -264,16 +265,20 @@ async function signOut() {
 }
 function alertUser(text, type = 'success') { toastController.show(text, type) }
 function notifyWriteFailure(error) {
-  // Se a resposta do POST não chegou, não há prova de falha: nada de alerta
-  // repetitivo de API nem de "verificação pendente". O GET normal reconcilia
-  // as listas; o próximo clique reutiliza a chave e não duplica a operação.
-  if (isWritePending(error) || isTransientFailure(error)) {
-    console.info('Resposta da gravação indisponível; listas serão sincronizadas.')
-    refreshVisibleData()
+  // Sem HTTP 2xx não afirmamos sucesso nem fracasso: a gravação pode ter
+  // ocorrido no servidor. Nunca mostrar o erro genérico de conexão no PDV.
+  // Apenas um erro de validação/permissão com resposta explícita do servidor
+  // vira notificação; as demais falhas permanecem no console para diagnóstico.
+  const message = actionableWriteMessage(error)
+  if (message) {
+    alertUser(message, 'error')
     return
   }
-  const message = writeErrorText(error, errorText)
-  if (message) alertUser(message, 'error')
+  if (error?.response?.status !== 401) {
+    console.warn('Resposta inconclusiva da gravação; consultando os dados:', error)
+    syncDelayed.value = true
+    refreshVisibleData()
+  }
 }
 function notifyReadFailure(error) {
   // Relatórios já indicam problema no próprio painel. Não transformar falhas
@@ -287,7 +292,6 @@ function applyConfirmedWrite(updateUI, response) {
   try { updateUI(response) }
   catch (error) {
     console.error('Operação confirmada, mas a interface não sincronizou:', error)
-    alertUser('Operação salva. Atualizando a lista…')
     refreshVisibleData()
   }
 }
@@ -382,10 +386,12 @@ async function toggleProduct(product) {
   busy.value = true
   try {
     const response = await api.patch(`products/${product.id}/`, { active: !product.active })
-    invalidateResource('products')
-    products.value = upsertById(products.value, response.data)
-    alertUser('Situação do produto atualizada.')
-    refreshCatalogInBackground()
+    applyConfirmedWrite(() => {
+      invalidateResource('products')
+      products.value = upsertById(products.value, response.data)
+      alertUser('Situação do produto atualizada.')
+      refreshCatalogInBackground()
+    }, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
@@ -393,12 +399,14 @@ async function deleteProduct(product) {
   if (busy.value || !confirm(`Excluir "${product.name}"? Produtos com histórico devem ser desativados.`)) return
   busy.value = true
   try {
-    await api.delete(`products/${product.id}/`)
-    invalidateResource('products')
-    products.value = removeById(products.value, product.id)
-    if (productForm.value.id === product.id) resetProduct()
-    alertUser('Produto excluído.')
-    refreshCatalogInBackground()
+    const response = await api.delete(`products/${product.id}/`)
+    applyConfirmedWrite(() => {
+      invalidateResource('products')
+      products.value = removeById(products.value, product.id)
+      if (productForm.value.id === product.id) resetProduct()
+      alertUser('Produto excluído.')
+      refreshCatalogInBackground()
+    }, response)
   } catch (error) { notifyWriteFailure(error) }
   finally { busy.value = false }
 }
@@ -435,6 +443,16 @@ function removeItem(i) { saleForm.value.items.splice(i, 1) }
 function chooseSaleItem(p) { window.clearTimeout(saleSearchBlurTimer); saleDraft.value.product = p.id; saleDraft.value.query = p.name; saleSearchOpen.value = false }
 function showSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchOpen.value = true }
 function onSaleInput() { saleDraft.value.product = ''; saleSearchOpen.value = true }
+function clearSaleSearch() {
+  saleDraft.value.product = ''
+  saleDraft.value.query = ''
+  showSaleOptions()
+  nextTick(() => saleSearchInput.value?.focus())
+}
+function toggleSaleOptions() {
+  saleSearchOpen.value = !saleSearchOpen.value
+  if (saleSearchOpen.value) nextTick(() => saleSearchInput.value?.focus())
+}
 function hideSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchBlurTimer = window.setTimeout(() => { saleSearchOpen.value = false }, 250) }
 async function refreshDashboardCharts({ silent = false, force = false } = {}) {
   const cacheKey = `${chartPeriod.value}|${localDateISO()}`
@@ -637,7 +655,7 @@ function labelStatus(p) {
       <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
       <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
     </nav>
-    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Mostrando últimos dados' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades · Versão 09</small></div>
+    <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Mostrando últimos dados' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades · Versão 10</small></div>
   </aside>
   <main class="main-content">
     <div class="topbar"><span class="topbar-path">PAINEL <span class="crumb">/ {{ { dashboard: 'Visão geral', sales: 'Vendas', products: 'Produtos', inventory: 'Posição de estoque', movements: 'Movimentações' }[tab] }}</span></span><div class="topbar-actions"><span class="topbar-date">{{ shortDate(today) }}</span><button type="button" class="icon-btn" :title="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" :aria-label="theme === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'" @click="theme = theme === 'dark' ? 'light' : 'dark'"><AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" /></button><button type="button" class="icon-btn" aria-label="Atualizar dados" title="Atualizar dados" @click="refreshVisibleData"><AppIcon name="refresh" /></button><span v-if="authRequired" class="topbar-user">{{ authUsername }}</span><button v-if="authRequired" type="button" class="btn secondary" title="Sair da conta" @click="signOut">Sair</button></div></div>
@@ -684,9 +702,29 @@ function labelStatus(p) {
       <div class="grid-2 sale-layout">
         <form class="panel sale-panel" @submit.prevent="registerSale">
           <div class="panel-heading"><div><span class="eyebrow">PONTO DE VENDA</span><h2>Adicionar item</h2></div><AppIcon name="cart" /></div>
-          <div class="sale-draft"><div class="sale-product-field"><label for="sale-search">Pesquisar ou selecionar produto</label><div :class="['search-input', 'sale-search-box', { 'is-selected': saleDraft.product }]"><AppIcon :name="saleDraft.product ? 'check' : 'search'" :size="17" /><input id="sale-search" ref="saleSearchInput" v-model="saleDraft.query" type="search" autocomplete="off" placeholder="Clique para ver produtos em ordem alfabética" @focus="showSaleOptions" @click="showSaleOptions" @input="onSaleInput" @blur="hideSaleOptions" aria-haspopup="listbox" :aria-expanded="saleSearchOpen" /></div>
-            <div v-if="saleSearchOpen" class="sale-results" role="listbox" aria-label="Produtos disponíveis"><button v-for="p in saleChoices" :key="p.id" type="button" role="option" :aria-selected="saleDraft.product === p.id" @mousedown.prevent="chooseSaleItem(p)" @click="chooseSaleItem(p)"><span>{{ p.name }}<small>{{ p.sku || p.category_name || 'Sem categoria' }}</small></span><span>{{ money(p.sale_price) }}<small>{{ p.available_stock ?? p.stock }} disponíveis</small></span></button><div v-if="!saleChoices.length" class="empty">Nenhum produto disponível.</div></div>
-          </div><label class="qty-label">Quantidade<input v-model.number="saleDraft.quantity" type="number" min="1" step="1" :max="products.find(p => p.id === Number(saleDraft.product))?.available_stock ?? products.find(p => p.id === Number(saleDraft.product))?.stock" /></label><button type="button" class="btn primary" :disabled="!saleDraft.product || !Number.isInteger(Number(saleDraft.quantity)) || Number(saleDraft.quantity) < 1" @click="addItem"><AppIcon name="add" :size="17" /> Incluir</button></div>
+          <div class="sale-draft">
+            <div class="sale-draft-controls">
+              <div class="sale-product-field">
+                <label for="sale-search">Produto</label>
+                <div :class="['search-input', 'sale-search-box', { 'is-selected': saleDraft.product }]">
+                  <AppIcon :name="saleDraft.product ? 'check' : 'search'" :size="19" />
+                  <input id="sale-search" ref="saleSearchInput" v-model="saleDraft.query" type="text" autocomplete="off" placeholder="Buscar produto..." @focus="showSaleOptions" @click="showSaleOptions" @input="onSaleInput" @keydown.esc="saleSearchOpen = false" @blur="hideSaleOptions" role="combobox" aria-controls="sale-product-options" aria-autocomplete="list" aria-haspopup="listbox" :aria-expanded="saleSearchOpen" />
+                  <button v-if="saleDraft.query" class="sale-search-action" type="button" aria-label="Limpar produto selecionado" @mousedown.prevent @click="clearSaleSearch"><AppIcon name="close" :size="16" /></button>
+                  <button v-else type="button" class="sale-search-action" :aria-label="saleSearchOpen ? 'Fechar lista' : 'Mostrar produtos'" @mousedown.prevent @click="toggleSaleOptions"><AppIcon name="chevron" :size="17" /></button>
+                </div>
+              </div>
+              <label class="qty-label">Quantidade<input v-model.number="saleDraft.quantity" type="number" min="1" step="1" :max="products.find(p => p.id === Number(saleDraft.product))?.available_stock ?? products.find(p => p.id === Number(saleDraft.product))?.stock" /></label>
+              <button type="button" class="btn primary sale-add-btn" :disabled="!saleDraft.product || !Number.isInteger(Number(saleDraft.quantity)) || Number(saleDraft.quantity) < 1" @click="addItem"><AppIcon name="add" :size="17" /> Incluir</button>
+            </div>
+            <div v-if="saleSearchOpen" id="sale-product-options" class="sale-results" role="listbox" aria-label="Produtos disponíveis">
+              <div class="sale-results-heading"><span>{{ saleDraft.query ? 'Resultados da busca' : 'Produtos disponíveis · A–Z' }}</span><small>{{ saleChoices.length }} exibidos</small></div>
+              <button v-for="p in saleChoices" :key="p.id" type="button" role="option" :aria-selected="saleDraft.product === p.id" @mousedown.prevent="chooseSaleItem(p)" @click="chooseSaleItem(p)">
+                <span class="sale-choice-name"><strong>{{ p.name }}</strong><small>{{ p.sku || p.category_name || 'Sem categoria' }}</small></span>
+                <span class="sale-choice-price"><strong>{{ money(p.sale_price) }}</strong><small>{{ p.available_stock ?? p.stock }} un. disponíveis</small></span>
+              </button>
+              <div v-if="!saleChoices.length" class="empty sale-results-empty">Nenhum produto encontrado.</div>
+            </div>
+          </div>
           <div class="cart-heading"><h3>Itens adicionados</h3><span class="count-pill">{{ saleForm.items.length }} itens</span></div>
           <div v-if="!saleForm.items.length" class="empty cart-empty">Nenhum item na venda. Escolha um produto acima para começar.</div>
           <div v-for="(item, index) in saleForm.items" :key="item.key" class="cart-line"><span class="rank-index">{{ String(index + 1).padStart(2, '0') }}</span><div class="cart-line-name"><strong>{{ products.find(p => p.id === Number(item.product))?.name }}</strong><small>{{ money(products.find(p => p.id === Number(item.product))?.sale_price) }} / un.</small></div><label class="qty-label">Qtd.<input v-model.number="item.quantity" type="number" min="1" step="1" :max="products.find(p => p.id === Number(item.product))?.available_stock ?? products.find(p => p.id === Number(item.product))?.stock" /></label><strong class="cart-price">{{ money(Number(products.find(p => p.id === Number(item.product))?.sale_price || 0) * item.quantity) }}</strong><button type="button" class="remove-item" aria-label="Remover item" @click="removeItem(index)"><AppIcon name="trash" :size="17" /></button></div>
