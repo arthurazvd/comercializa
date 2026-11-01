@@ -48,3 +48,7 @@
 O conjunto `01`–`16` permanece como documentação funcional e acadêmica de base. As seções **Estado implementado V1.2.0** complementam os documentos em que o escopo evoluiu. Relatórios de iterações antigas são históricos e não representam todas as funções atuais.
 
 - [23 — Fotos no catálogo e ciclo das notificações (V1.2.1)](23-fotos-catalogo-notificacoes.md)
+
+## Funcionalidades V1.3.0
+
+- [Custo por lote, foto no estoque, pré-visualização e testes](24-custos-por-lote-e-previsualizacao-de-estoque.md)

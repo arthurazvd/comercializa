@@ -92,3 +92,13 @@ Em evolução posterior, o SAD deverá classificar produtos por participação n
 **RF28 — Layout e sessão:** sidebar estática no desktop, navegação inferior mobile, tema claro/escuro, sessão autenticada em produção, versionamento SemVer (`1.2.0`).
 
 **RNF01 — Resiliência:** indisponibilidade das consultas de leitura não pode ser confundida com falha de gravação confirmada. **RNF02 — Capacidade:** fotos de até 100 KB ocupam espaço no PostgreSQL, portanto o armazenamento é adequado apenas ao volume suportado pela instância. **RNF03 — Acessibilidade:** botões de câmera/galeria, estado de prévia e imagens possuem rótulos, foco navegável e fallback.
+
+## Requisitos funcionais V1.3.0
+
+- RF-FOTO-EST: apresentar miniatura autenticada na tabela de estoque e pré-visualização ao abrir o produto.
+- RF-LOTE-CUSTO: registrar custo unitário em cada nova compra, sem sobrescrever o custo dos lotes anteriores.
+- RF-PRECO: permitir atualizar separadamente o custo de referência e o preço de venda; preço de venda precisa superar o custo do novo recebimento.
+- RF-VALORIZACAO: calcular o valor e o custo médio do estoque por lotes, preservando saldo legado a custo de referência.
+- RF-HIST-CUSTO: congelar o custo das unidades consumidas na venda; preservar lotes e custos durante estorno.
+
+Consulte [detalhamento UC13–15](24-custos-por-lote-e-previsualizacao-de-estoque.md).

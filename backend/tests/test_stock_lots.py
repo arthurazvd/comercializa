@@ -35,7 +35,7 @@ def test_receipt_creates_lot_and_preserves_legacy_expiration(client_api, perisha
     assert lot.quantity == 5 and lot.expiration_date == later
     assert lot.receipt_movement_id == response.data['id']
     assert response.data['justification'] == 'recebimento'
-    assert response.data['lots'] == [{'expiration_date': later, 'quantity': 5}]
+    assert response.data['lots'] == [{'expiration_date': later, 'quantity': 5, 'unit_cost': 4}]
     product_response = client_api.get(f'/api/products/{perishable.id}/').data
     assert product_response['available_stock'] == 5
     assert product_response['expired_units'] == 3
@@ -95,7 +95,9 @@ def test_nonperishable_legacy_sale_still_works(client_api, db):
     assert response.status_code == 201, response.data
     p.refresh_from_db()
     assert p.stock == 3
-    assert not StockLot.objects.exists()
+    # O estoque antigo passa a ser lote de abertura para preservar o custo
+    # na venda e em possíveis estornos, mesmo sem validade.
+    assert StockLot.objects.filter(product=p, quantity=3, expiration_date__isnull=True).exists()
 
 
 @pytest.mark.django_db

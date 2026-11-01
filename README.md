@@ -1,3 +1,16 @@
+## Comercializa V1.3.0 — Fotos no estoque e custo por lote (01/11/2026)
+
+- Catálogo: layout em grade corrige nomes comprimidos ao lado de fotos e ações.
+- Estoque: fotos autenticadas, clique no nome para pré-visualização ampliada, indicadores e histórico de lotes.
+- Movimentações: recebimentos com custo unitário específico por lote, controle de custo de referência e alteração opcional de preço de venda; preços anteriores não são reescritos.
+- Estoque é valorizado por custo de cada lote; saída de venda registra custo histórico e estorno devolve ao lote de origem. Lotes podem não ter validade.
+- **Publicação exige backend e migração `0008_cost_by_lot` no Neon antes de publicar o novo frontend**. Faça backup do banco. As fotos existentes não mudam.
+- Os testes locais de frontend e sintaxe Python não substituem `npm ci`, build Vite e `pytest` no GitHub Actions, nem teste real no Render.
+
+Documentação funcional: [UC13–15 e contrato API](docs/24-custos-por-lote-e-previsualizacao-de-estoque.md).
+
+---
+
 ## Comercializa V1.2.3 — Correção do npm e teste de movimentação (01/11/2026)
 
 - O lockfile apontava para `picocolors@1.2.0` (tarball inexistente no npm), embora seu hash fosse o da versão publicada `1.1.1`. Corrigidas a versão e a URL.

@@ -90,3 +90,11 @@
 ### UC14 — Receber notificações transitórias
 
 Após gravação ou validação, a mensagem e a barra de progresso aparecem por até 1,5 s, desaparecendo automaticamente quando a barra termina; o usuário também pode dispensá-la pelo botão. Um alerta novo substitui o antigo com novo prazo.
+
+## Casos de uso V1.3.0
+
+- **UC13 — Receber compras a custos distintos:** cada recebimento cria um lote com custo próprio; pode atualizar custo de referência e, separadamente, preço de venda. Mantém custos anteriores.
+- **UC14 — Visualizar produto no estoque:** toque no nome para abrir foto ampliada, preços, saldo e histórico de lotes.
+- **UC15 — Vender e estornar preservando custos:** o custo da saída é congelado na venda e os lotes são recompostos no estorno.
+
+Regras, fluxo alternativo e API: [Especificação de lotes](24-custos-por-lote-e-previsualizacao-de-estoque.md).

@@ -1,6 +1,7 @@
 """Relatórios de vendas e consulta de estoque, com exportação XLSX."""
 from django.http import HttpResponse
 from datetime import timedelta
+from decimal import Decimal
 from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -34,7 +35,9 @@ def stock_data():
         items.append({'id': p.pk, 'name': p.name, 'sku': p.sku,
                       'category': p.category.name if p.category_id else 'Sem categoria',
                       'stock': p.stock, 'minimum_stock': p.minimum_stock,
-                      'unit_cost': p.purchase_price, 'stock_value': p.stock * p.purchase_price,
+                      'unit_cost': p.purchase_price, 'stock_value': snap['inventory_value'],
+                      'average_cost': (snap['inventory_value'] / p.stock).quantize(Decimal('0.01')) if p.stock else p.purchase_price,
+                      'expired_stock_value': snap['expired_stock_value'],
                       'expiration_date': snap['nearest_expiration'], 'active': p.active,
                       'available_stock': snap['available_stock'], 'expired_units': snap['expired_units'],
                       'expiring_units': snap['expiring_units'], 'lot_count': snap['lot_count'],
@@ -45,7 +48,7 @@ def stock_data():
     active = [i for i in items if i['active']]
     return {'summary': {'products': len(active), 'units': sum(i['stock'] for i in active),
                         'inventory_value': sum((i['stock_value'] for i in active), 0),
-                        'expired_stock_value': sum((i['expired_units'] * i['unit_cost'] for i in active), 0),
+                        'expired_stock_value': sum((i['expired_stock_value'] for i in active), 0),
                         'available_units': sum(i['available_stock'] for i in active),
                         'low_stock_count': sum(i['low_stock'] for i in active),
                         'expired_count': sum(i['expired'] for i in active),
@@ -67,11 +70,11 @@ class StockExportView(APIView):
     def get(self, request):
         data = stock_data()
         rows = [(p['sku'] or '', p['name'], p['category'], p['stock'], p['available_stock'], p['expired_units'], p['expiring_units'], p['minimum_stock'],
-                 p['unit_cost'], p['stock_value'], p['status'], p['expiration_date'] or '', p['lot_count'])
+                 p['average_cost'], p['unit_cost'], p['stock_value'], p['status'], p['expiration_date'] or '', p['lot_count'])
                 for p in data['items']]
         summary = data['summary']
         sheets = [
-            ('Estoque', ['SKU', 'Produto', 'Categoria', 'Saldo físico', 'Disponível', 'Vencido (un.)', 'A vencer (un.)', 'Mínimo', 'Custo unit.', 'Valor estocado', 'Situação', 'Validade mais próxima', 'Lotes ativos'], rows, {8: 'currency', 9: 'currency'}),
+            ('Estoque', ['SKU', 'Produto', 'Categoria', 'Saldo físico', 'Disponível', 'Vencido (un.)', 'A vencer (un.)', 'Mínimo', 'Custo médio (lotes)', 'Custo de referência', 'Valor estocado', 'Situação', 'Validade mais próxima', 'Lotes ativos'], rows, {8: 'currency', 9: 'currency', 10: 'currency'}),
             ('Resumo', ['Indicador', 'Valor'], [
                 ('Produtos ativos', summary['products']), ('Unidades ativas', summary['units']),
                 ('Valor do estoque (custo)', summary['inventory_value']),

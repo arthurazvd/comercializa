@@ -90,6 +90,8 @@ class SaleItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="sale_items")
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    # Custo total congelado na data da venda, mesmo quando o preço da compra mudar.
+    cost_total = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
 
     @property
     def subtotal(self):
@@ -125,6 +127,7 @@ class StockMovement(models.Model):
     stock_after = models.PositiveIntegerField()
     reason = models.CharField(max_length=20, choices=Reason.choices)
     note = models.CharField(max_length=255, blank=True)
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -137,7 +140,9 @@ class StockMovement(models.Model):
 class StockLot(models.Model):
     """Lote recebido com validade própria. O saldo total continua em Product.stock."""
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="lots")
-    expiration_date = models.DateField()
+    expiration_date = models.DateField(null=True, blank=True)
+    # Preço de aquisição imutável deste recebimento, separado do preço de tabela.
+    unit_cost = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     received_quantity = models.PositiveIntegerField()
     quantity = models.PositiveIntegerField()
     receipt_movement = models.ForeignKey(StockMovement, on_delete=models.PROTECT, related_name="received_lots", null=True, blank=True)
@@ -147,7 +152,7 @@ class StockLot(models.Model):
         ordering = ["expiration_date", "id"]
 
     def __str__(self):
-        return f"{self.product.name} — {self.expiration_date} ({self.quantity})"
+        return f"{self.product.name} — {self.expiration_date or 'sem validade'} ({self.quantity})"
 
 
 class StockLotAllocation(models.Model):

@@ -94,3 +94,7 @@ A equipe deverá buscar:
 **Evidência nesta execução:** `npm test` executado com 78 aprovados, 0 falhas; sintaxe Python compilada. O ambiente local não continha Django/DRF instalado, logo **não foi possível executar a suíte backend nem obter porcentagem de cobertura nesta entrega**. O build Vue/Vite depende da instalação npm e não está validado até conclusão no CI.
 
 **Não confundir teste com cobertura de todos os campos:** alguns contratos frontend são verificados estaticamente, não por navegador real. A matriz por campo/funcionalidade e as lacunas remanescentes são documentadas em `21-matriz-rastreabilidade-campos.md`. Passar os testes não valida a rede Render, câmera física, iOS/Android ou limite de armazenamento no Neon.
+
+## Escopo V1.3.0
+
+Foram adicionados `backend/tests/test_cost_lots_v130.py` (custo por lote, estoque, preço de venda e consumo) e `frontend/tests/cost-lots-ui-v130.test.js` (regressões estruturais). **Execução de Django, build Vite e testes em dispositivo real são pendentes**, devido a dependências inacessíveis neste ambiente. Não interpretar checagem de sintaxe Python como execução de integração.

@@ -7,7 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Category, Product, Sale, SaleItem, StockMovement, StockLot, StockLotAllocation
-from .stock_lots import stock_snapshot, consume_lots
+from .stock_lots import stock_snapshot, consume_lots, seal_legacy_stock
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -100,6 +100,10 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'stock': 'Para receber um perecível, use Movimentações e informe a validade do lote.'})
         # CAS (compare-and-swap): protege inclusive PUT/PATCH sem campo stock,
         # sem depender exclusivamente de SELECT FOR UPDATE (inócuo no SQLite).
+        # Se custo-base for alterado no cadastro, preservar saldo antigo no
+        # lote de abertura em vez de reavaliá-lo retroativamente.
+        if 'purchase_price' in validated_data and validated_data['purchase_price'] != current.purchase_price:
+            seal_legacy_stock(current)
         updated = Product.objects.filter(pk=instance.pk, stock=current.stock).update(**validated_data)
         if not updated:
             raise serializers.ValidationError(
@@ -130,7 +134,7 @@ class SaleItemReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SaleItem
-        fields = ["id", "product", "product_name", "quantity", "unit_price", "subtotal"]
+        fields = ["id", "product", "product_name", "quantity", "unit_price", "subtotal", "cost_total"]
 
 
 class SaleSerializer(serializers.ModelSerializer):
@@ -206,14 +210,21 @@ class SaleCreateSerializer(serializers.Serializer):
         for item in items_data:
             product = products[item["product"].pk]
             quantity = item["quantity"]
+            # Registre o saldo legado como lote de abertura antes de vender.
+            # Isso preserva seu custo inclusive se a venda for estornada depois.
+            seal_legacy_stock(product)
             allocations = consume_lots(product, quantity, sale_only=True)
             updated = Product.objects.filter(
                 pk=product.pk, active=True, stock=product.stock,
             ).update(stock=F("stock") - quantity)
             if not updated:
                 raise serializers.ValidationError({"items": f"Estoque indisponível para '{product.name}'."})
+            tracked_qty = sum(qty for _, qty in allocations)
+            recorded_cost = sum((lot.unit_cost * qty for lot, qty in allocations), Decimal('0'))
+            recorded_cost += (quantity - tracked_qty) * product.purchase_price
             SaleItem.objects.create(
-                sale=sale, product=product, quantity=quantity, unit_price=product.sale_price,
+                sale=sale, product=product, quantity=quantity,
+                unit_price=product.sale_price, cost_total=recorded_cost,
             )
             movement = StockMovement.objects.create(
                 product=product, delta=-quantity, stock_before=product.stock,
@@ -230,12 +241,13 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
     def get_lots(self, obj):
         outgoing = [
-            {'expiration_date': a.lot.expiration_date,
+            {'expiration_date': a.lot.expiration_date, 'unit_cost': a.lot.unit_cost,
              'quantity': a.quantity if obj.reason == StockMovement.Reason.REVERSAL else -a.quantity}
             for a in obj.lot_allocations.select_related('lot').all()
         ]
         incoming = [
-            {'expiration_date': lot.expiration_date, 'quantity': lot.received_quantity}
+            {'expiration_date': lot.expiration_date, 'unit_cost': lot.unit_cost,
+             'quantity': lot.received_quantity}
             for lot in obj.received_lots.all()
         ]
         return incoming + outgoing
@@ -248,7 +260,7 @@ class StockMovementSerializer(serializers.ModelSerializer):
         model = StockMovement
         fields = [
             "id", "product", "product_name", "delta", "stock_before",
-            "stock_after", "reason", "reason_display", "justification", "justification_display", "note", "sale", "created_at", "lots",
+            "stock_after", "reason", "reason_display", "justification", "justification_display", "note", "sale", "created_at", "lots", "unit_cost",
         ]
         read_only_fields = fields
 
@@ -258,6 +270,10 @@ class StockAdjustmentSerializer(serializers.Serializer):
     delta = serializers.IntegerField(min_value=-1000000000, max_value=1000000000)
     note = serializers.CharField(max_length=255, allow_blank=False, trim_whitespace=True)
     expiration_date = serializers.DateField(required=False, allow_null=True)
+    # Para compra: custo do NOVO lote; produto.purchase_price é só referência.
+    unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0'), required=False)
+    update_reference_cost = serializers.BooleanField(required=False, default=False)
+    new_sale_price = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal('0'), required=False)
     justification = serializers.ChoiceField(choices=StockMovement.Justification.choices, required=False, default='')
 
     def validate(self, attrs):
@@ -274,6 +290,18 @@ class StockAdjustmentSerializer(serializers.Serializer):
             raise serializers.ValidationError({'expiration_date': 'Validade de lote só é permitida em entradas.'})
         if expiry and expiry < timezone.localdate():
             raise serializers.ValidationError({'expiration_date': 'Não é permitido receber um lote já vencido.'})
+        purchase = delta > 0 and justification == StockMovement.Justification.RECEIPT
+        if not purchase and any(field in attrs for field in ('unit_cost', 'new_sale_price')):
+            raise serializers.ValidationError({'unit_cost': 'Custos e preços de compra só são alterados em Recebimento.'})
+        if not purchase and attrs.get('update_reference_cost'):
+            raise serializers.ValidationError({'update_reference_cost': 'Ajuste de custo somente em Recebimento.'})
+        if purchase:
+            current = attrs['product']
+            cost = attrs.get('unit_cost', current.purchase_price)
+            price = attrs.get('new_sale_price', current.sale_price)
+            if price <= cost:
+                raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve ser maior que o custo deste recebimento. Informe um novo preço.'})
+            attrs['unit_cost'] = cost
         return attrs
 
     def validate_delta(self, value):
@@ -288,21 +316,41 @@ class StockAdjustmentSerializer(serializers.Serializer):
         after = product.stock + delta
         if not 0 <= after <= 2147483647:
             raise serializers.ValidationError({"delta": "Estoque resultante inválido."})
+        is_purchase = delta > 0 and validated_data.get('justification') == StockMovement.Justification.RECEIPT
+        if is_purchase:
+            # Revalidar os preços após bloquear o produto: outra sessão pode
+            # ter alterado o custo ou o preço entre o validate() e o create().
+            current_cost = validated_data.get('unit_cost', product.purchase_price)
+            current_sale_price = validated_data.get('new_sale_price', product.sale_price)
+            if current_sale_price <= current_cost:
+                raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve superar o custo da entrada.'})
+            validated_data['unit_cost'] = current_cost
+        if is_purchase and validated_data.get('update_reference_cost'):
+            seal_legacy_stock(product)
         allocations = consume_lots(product, -delta, sale_only=False) if delta < 0 else []
-        updated = Product.objects.filter(pk=product.pk, stock=product.stock).update(stock=F("stock") + delta)
+        updates = {'stock': F('stock') + delta}
+        if is_purchase and validated_data.get('update_reference_cost'):
+            updates['purchase_price'] = validated_data['unit_cost']
+        if is_purchase and 'new_sale_price' in validated_data:
+            updates['sale_price'] = validated_data['new_sale_price']
+        updated = Product.objects.filter(pk=product.pk, stock=product.stock).update(**updates)
         if not updated:
             raise serializers.ValidationError({"delta": "Estoque alterado por outra operação. Tente novamente."})
         movement = StockMovement.objects.create(
             product=product, delta=delta, stock_before=product.stock,
             stock_after=after, reason=StockMovement.Reason.ADJUSTMENT,
             note=validated_data["note"], justification=validated_data.get("justification", ""),
+            unit_cost=validated_data.get('unit_cost') if is_purchase else None,
         )
 
         for lot, qty in allocations:
             StockLotAllocation.objects.create(movement=movement, lot=lot, quantity=qty)
-        if delta > 0 and validated_data.get('expiration_date'):
+        if delta > 0:
+            # Entradas de qualquer produto criam seu próprio lote de custo.
+            # Devolução não altera o custo de referência no cadastro.
             StockLot.objects.create(
-                product=product, expiration_date=validated_data['expiration_date'],
+                product=product, expiration_date=validated_data.get('expiration_date'),
                 received_quantity=delta, quantity=delta, receipt_movement=movement,
+                unit_cost=validated_data.get('unit_cost', product.purchase_price),
             )
         return movement

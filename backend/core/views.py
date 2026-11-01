@@ -78,6 +78,28 @@ class ProductViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
             Product.objects.filter(pk=product.pk).update(image_updated_at=updated_at)
         return Response({'has_image': True, 'image_updated_at': updated_at, 'filename': filename, 'size': len(data)})
 
+    @action(detail=True, methods=['get'], url_path='lots')
+    def lots(self, request, pk=None):
+        product = self.get_object()
+        lots = list(product.lots.order_by('-created_at', '-id'))
+        result = [{
+            'id': lot.pk, 'quantity': lot.quantity,
+            'received_quantity': lot.received_quantity,
+            'unit_cost': str(lot.unit_cost),
+            'expiration_date': lot.expiration_date,
+            'created_at': lot.created_at,
+            'opening_balance': lot.receipt_movement_id is None,
+        } for lot in lots]
+        legacy = max(0, product.stock - sum(lot.quantity for lot in lots))
+        if legacy:
+            result.append({
+                'id': 'legacy', 'quantity': legacy, 'received_quantity': legacy,
+                'unit_cost': str(product.purchase_price),
+                'expiration_date': product.expiration_date,
+                'created_at': None, 'opening_balance': True,
+            })
+        return Response(result)
+
     def perform_update(self, serializer):
         product = serializer.save()
         if product.image_updated_at:

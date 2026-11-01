@@ -40,3 +40,15 @@ Uma recomendação é considerada aceitável quando:
 7. Notificações somem ao final da animação (1,5 s) ou no timer de fallback, sem obrigar clique no X.
 8. No mobile, captura e galeria são acionáveis por toque, campos e rótulos acessíveis, sem sobreposições e sem scroll horizontal indevido.
 9. Testes automatizados de frontend/backend devem passar no CI, migração no Render deve completar e fluxo real câmera → catálogo → edição → remoção deve ser testado em aparelho real antes da publicação estável.
+
+## V1.3.0 — critérios adicionais
+
+1. O nome do produto não quebra letra por letra quando houver foto, preços e botões no catálogo (PC e mobile).
+2. A tabela Estoque carrega miniaturas autenticadas; ao tocar no nome abre janela com foto ampliada e lotes.
+3. Uma entrada de recebimento de produto não perecível cria lote com `unit_cost`, mesmo sem validade.
+4. Comprar o mesmo produto por R$ 5 e depois por R$ 8 mantém dois custos distintos, exibidos no detalhe e usados no valor do estoque.
+5. Atualizar o custo de referência e/ou preço de venda não reescreve o preço pago nos lotes anteriores.
+6. Uma venda consome o lote correto, congela `SaleItem.cost_total` e o estorno recompõe as quantidades originais.
+7. Compra com custo igual ou superior ao preço de venda sem ajuste de preço é recusada sem modificar estoque.
+8. A migração não atribui custos inventados a vendas anteriores; lotes antigos recebem apenas o preço de referência conhecido na data da migração.
+9. Jobs do GitHub Actions (`npm ci`, `npm test`, `npm run build`, `pytest`) devem passar, e a publicação no Render exige backup e migração 0008.

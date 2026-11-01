@@ -78,3 +78,9 @@ O lançamento de venda e seus movimentos ocorre atomicamente. A alteração de s
 **Migração:** `backend/core/migrations/0007_product_image.py` adiciona `image_updated_at` e tabela `ProductImage`; não altera nem exclui vendas ou estoques anteriores. A exclusão de produto sem dependências elimina sua imagem por CASCADE. Trocar SKU de produto com foto atualiza o nome lógico no registro (os bytes permanecem os mesmos).
 
 **Invariantes:** imagem JPEG válida até 102400 bytes, até 4096 pixels em cada dimensão na validação do servidor; frontend padroniza 800×800 px ou menor. Dados binários não podem constar em `/api/products/`. Excluir a imagem define `image_updated_at=NULL`.
+
+## Atualização V1.3.0 — custo por lote
+
+`StockLot.unit_cost` registra custo histórico por lote mesmo para itens sem validade (`expiration_date = NULL`). `StockMovement.unit_cost` registra o preço informado no recebimento. `SaleItem.cost_total` congela o custo total da linha da venda (nulo para vendas anteriores sem histórico). `Product.purchase_price` torna-se referência de custo para novas operações; `Product.sale_price` continua representando o preço de venda vigente.
+
+Migração `0008_cost_by_lot`: lotes já cadastrados recebem o custo de referência conhecido, não um histórico reconstruído; a compra original não está disponível para inferência. Consulta `GET /api/products/{id}/lots/`. Regras detalhadas em [UC13–15](24-custos-por-lote-e-previsualizacao-de-estoque.md).
