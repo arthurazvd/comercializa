@@ -52,7 +52,8 @@ def finance_report(filters):
     # Intervalo sem cast de DATE na coluna: aproveita o índice de created_at.
     begin = timezone.make_aware(datetime.combine(start, time.min))
     finish = timezone.make_aware(datetime.combine(end + timedelta(days=1), time.min))
-    sales = (Sale.objects.filter(created_at__gte=begin, created_at__lt=finish)
+    sales = (Sale.objects.filter(created_at__gte=begin, created_at__lt=finish,
+                                  canceled_at__isnull=True)
              .prefetch_related('items__product__category').order_by('created_at', 'pk'))
     gross = Decimal('0')
     allocated_discount = Decimal('0')

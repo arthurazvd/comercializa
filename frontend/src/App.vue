@@ -54,6 +54,12 @@ const reportFilters = ref(defaultReportFilters())
 const blankProduct = () => ({ perishable: false, id: null, name: '', category: '', sku: '', purchase_price: 0, sale_price: 0, stock: 0, minimum_stock: 0, expiration_date: '', active: true })
 const productForm = ref(blankProduct())
 const saleForm = ref({ items: [], discount: 0 })
+const saleToReverse = ref(null)
+const reversalReason = ref('Devolução integral')
+const reversalDetails = ref('')
+const reversalReasons = ['Devolução integral', 'Erro de lançamento', 'Cancelamento da compra', 'Outro motivo']
+const reversalValid = computed(() => !!saleToReverse.value &&
+  (reversalReason.value !== 'Outro motivo' || reversalDetails.value.trim().length >= 3))
 const saleDraft = ref({ product: '', quantity: 1, query: '' })
 const saleSearchOpen = ref(false)
 const saleSearchInput = ref(null)
@@ -73,6 +79,7 @@ const serverWaking = ref(false)
 let serverWakingTimer
 let dashboardChartRequest = 0
 let chartAbortController = null
+let chartErrorTimer = null
 const chartCache = new Map()
 let activeRefreshInterval
 const today = localDateISO()
@@ -112,7 +119,7 @@ const modalItems = computed(() => {
   if (modal.value === 'vencido' || modal.value === 'a_vencer') return filteredInventory(products.value, '', modal.value)
   return []
 })
-const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas' }
+const modalTitles = { critico: 'Produtos em estoque crítico', vencido: 'Produtos vencidos', a_vencer: 'Próximos do vencimento', finance: 'Análise financeira e vendas', 'sale-reversal': 'Estornar venda' }
 
 watch(theme, value => { document.documentElement.dataset.theme = value; saveTheme(value) }, { immediate: true })
 watch(modal, value => { document.body.style.overflow = value ? 'hidden' : '' })
@@ -127,7 +134,7 @@ watch(tab, selected => {
   if (!authenticated.value) return
   const onDemand = { dashboard: ['dashboard'], sales: ['sales'], products: ['products', 'categories'], inventory: ['stockOverview', 'products'], movements: ['movements', 'products'] }
   void refreshResources(onDemand[selected] || [])
-  if (selected === 'dashboard') void refreshDashboardCharts({ silent: true })
+  if (selected === 'dashboard') void refreshDashboardCharts({ silent: true, force: true })
 })
 watch(stockProduct, () => { stockExpiry.value = '' })
 watch(stockDelta, value => { if (Number(value) <= 0) { stockExpiry.value = ''; if (stockReason.value === 'recebimento' || stockReason.value === 'devolucao') stockReason.value = 'avaria' } else if (stockReason.value === 'avaria' || stockReason.value === 'perda') stockReason.value = 'recebimento' })
@@ -136,11 +143,14 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   yearRefreshInterval = window.setInterval(() => { copyrightYear.value = getCopyrightYear() }, 60_000)
   activeRefreshInterval = window.setInterval(() => {
-    if (authenticated.value && tab.value === 'dashboard' && document.visibilityState === 'visible') {
-      void refreshResources(['dashboard'])
-      void refreshDashboardCharts({ silent: true })
+    if (!authenticated.value || document.visibilityState !== 'visible') return
+    if (tab.value === 'dashboard') {
+      void refreshResources(['dashboard'], { force: true })
+      if (!chartLoading.value) void refreshDashboardCharts({ silent: true, force: true })
+    } else if (tab.value === 'sales') {
+      void refreshResources(['sales', 'products'], { force: true })
     }
-  }, 45000)
+  }, 20000)
   window.addEventListener('online', onAppResume)
   document.addEventListener('visibilitychange', onAppResume)
   window.addEventListener('comercializa:unauthorized', onUnauthorized)
@@ -153,6 +163,7 @@ onUnmounted(() => {
   window.clearInterval(activeRefreshInterval)
   window.clearTimeout(serverWakingTimer)
   chartAbortController?.abort()
+  window.clearTimeout(chartErrorTimer)
   window.removeEventListener('online', onAppResume)
   document.removeEventListener('visibilitychange', onAppResume)
   toastController.dispose()
@@ -183,8 +194,8 @@ function onAppResume() {
   if (!authenticated.value || document.visibilityState !== 'visible') return
   void refreshResources(tab.value === 'dashboard' ? ['dashboard'] : [({
     inventory: 'stockOverview', sales: 'sales', movements: 'movements', products: 'products',
-  })[tab.value] || 'dashboard'])
-  if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true })
+  })[tab.value] || 'dashboard'], { force: true })
+  if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true, force: true })
 }
 async function initializeSession() {
   authChecking.value = true
@@ -384,11 +395,11 @@ function removeItem(i) { saleForm.value.items.splice(i, 1) }
 function chooseSaleItem(p) { window.clearTimeout(saleSearchBlurTimer); saleDraft.value.product = p.id; saleDraft.value.query = p.name; saleSearchOpen.value = false }
 function showSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchOpen.value = true }
 function onSaleInput() { saleDraft.value.product = ''; saleSearchOpen.value = true }
-function hideSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchBlurTimer = window.setTimeout(() => { saleSearchOpen.value = false }, 120) }
+function hideSaleOptions() { window.clearTimeout(saleSearchBlurTimer); saleSearchBlurTimer = window.setTimeout(() => { saleSearchOpen.value = false }, 250) }
 async function refreshDashboardCharts({ silent = false, force = false } = {}) {
   const cacheKey = `${chartPeriod.value}|${localDateISO()}`
   const cached = chartCache.get(cacheKey)
-  if (!force && cached && Date.now() - cached.at < 30000) {
+  if (!force && cached && Date.now() - cached.at < 7000) {
     ++dashboardChartRequest
     chartAbortController?.abort()
     chartLoading.value = false
@@ -397,11 +408,13 @@ async function refreshDashboardCharts({ silent = false, force = false } = {}) {
     chartUpdatedAt.value = cached.time
     return
   }
+  if (chartLoading.value && !force) return
   const requestId = ++dashboardChartRequest
   chartAbortController?.abort()
   chartAbortController = new AbortController()
   chartLoading.value = true
   chartError.value = false
+  window.clearTimeout(chartErrorTimer)
   try {
     const dates = periodDates(chartPeriod.value, localDateISO())
     const result = await api.get(`reports/finance/?${queryReport(dates)}`, { signal: chartAbortController.signal })
@@ -414,6 +427,7 @@ async function refreshDashboardCharts({ silent = false, force = false } = {}) {
   } catch (error) {
     if (requestId === dashboardChartRequest && error?.code !== 'ERR_CANCELED') {
       chartError.value = true
+      chartErrorTimer = window.setTimeout(() => { chartError.value = false }, 5500)
       if (!silent) alertUser(errorText(error), 'error')
       else console.warn('Gráfico não atualizado:', error)
     }
@@ -421,7 +435,42 @@ async function refreshDashboardCharts({ silent = false, force = false } = {}) {
 }
 function refreshChartsAfterWrite() {
   chartCache.clear()
-  if (tab.value === 'dashboard') void refreshDashboardCharts({ silent: true, force: true })
+  finance.value = null
+  // Mantém as estatísticas coerentes em qualquer aba, não apenas no dashboard.
+  // A tela de vendas mostra a venda confirmada imediatamente; o GET reconcilia.
+  invalidateResource('products', 'dashboard', 'movements', 'stockOverview', 'sales')
+  const visible = {
+    dashboard: ['products', 'dashboard'],
+    sales: ['products', 'dashboard', 'sales'],
+    inventory: ['products', 'dashboard', 'stockOverview'],
+    movements: ['products', 'dashboard', 'movements'],
+    products: ['products', 'dashboard'],
+  }
+  void refreshResources(visible[tab.value] || ['products', 'dashboard'], { force: true })
+  void refreshDashboardCharts({ silent: true, force: true })
+  if (modal.value === 'finance') void refreshFinance()
+}
+
+function openReversal(sale) {
+  if (busy.value || sale.canceled_at) return
+  saleToReverse.value = sale
+  reversalReason.value = 'Devolução integral'
+  reversalDetails.value = ''
+  modal.value = 'sale-reversal'
+}
+async function confirmReversal() {
+  if (busy.value || !reversalValid.value) return
+  busy.value = true
+  const reason = reversalReason.value === 'Outro motivo'
+    ? reversalDetails.value.trim() : reversalReason.value
+  try {
+    const { data } = await postWithRecovery(`sales/${saleToReverse.value.id}/cancel/`, { reason })
+    sales.value = upsertById(sales.value, data)
+    closeModal()
+    alertUser(`Venda #${data.id} estornada. Estoque devolvido e reembolso de ${money(data.refunded_amount)} registrado.`)
+    refreshChartsAfterWrite()
+  } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
+  finally { busy.value = false }
 }
 
 async function registerSale() {
@@ -434,8 +483,6 @@ async function registerSale() {
     saleForm.value = { items: [], discount: 0 }
     saleDraft.value = { product: '', quantity: 1, query: '' }
     alertUser('Venda registrada! Estoque atualizado no servidor.')
-    invalidateResource('products', 'dashboard', 'movements', 'stockOverview')
-    void refreshResources(['products', 'dashboard', ...(tab.value === 'inventory' ? ['stockOverview'] : [])], { force: true })
     refreshChartsAfterWrite()
   } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
@@ -449,14 +496,12 @@ async function adjustStock() {
     movements.value = upsertById(movements.value, response.data)
     stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''
     alertUser('Movimentação registrada com sucesso.')
-    invalidateResource('products', 'dashboard', 'stockOverview')
-    void refreshResources(['products', 'dashboard', ...(tab.value === 'inventory' ? ['stockOverview'] : [])], { force: true })
     refreshChartsAfterWrite()
   } catch (error) { alertUser(writeErrorText(error, errorText), 'error') }
   finally { busy.value = false }
 }
 function openModal(type) { modal.value = type; if (type === 'finance') refreshFinance() }
-function closeModal() { modal.value = '' }
+function closeModal() { modal.value = ''; saleToReverse.value = null }
 function openInventory(status = 'all') { tab.value = 'inventory'; stockFilter.value = status; closeModal() }
 async function refreshFinance() {
   if (!reportFilters.value.start || !reportFilters.value.end || reportFilters.value.start > reportFilters.value.end) { alertUser('Corrija o intervalo de datas.', 'error'); return }
@@ -567,9 +612,8 @@ function labelStatus(p) {
       <div class="grid-2 sale-layout">
         <form class="panel sale-panel" @submit.prevent="registerSale">
           <div class="panel-heading"><div><span class="eyebrow">PONTO DE VENDA</span><h2>Adicionar item</h2></div><AppIcon name="cart" /></div>
-          <div class="sale-draft"><div class="sale-product-field"><label for="sale-search">Pesquisar ou selecionar produto</label><div class="search-input"><AppIcon name="search" :size="16" /><input id="sale-search" ref="saleSearchInput" v-model="saleDraft.query" type="search" autocomplete="off" placeholder="Clique para ver produtos em ordem alfabética" @focus="showSaleOptions" @click="showSaleOptions" @input="onSaleInput" @blur="hideSaleOptions" aria-haspopup="listbox" :aria-expanded="saleSearchOpen" /></div>
+          <div class="sale-draft"><div class="sale-product-field"><label for="sale-search">Pesquisar ou selecionar produto</label><div :class="['search-input', 'sale-search-box', { 'is-selected': saleDraft.product }]"><AppIcon :name="saleDraft.product ? 'check' : 'search'" :size="17" /><input id="sale-search" ref="saleSearchInput" v-model="saleDraft.query" type="search" autocomplete="off" placeholder="Clique para ver produtos em ordem alfabética" @focus="showSaleOptions" @click="showSaleOptions" @input="onSaleInput" @blur="hideSaleOptions" aria-haspopup="listbox" :aria-expanded="saleSearchOpen" /></div>
             <div v-if="saleSearchOpen" class="sale-results" role="listbox" aria-label="Produtos disponíveis"><button v-for="p in saleChoices" :key="p.id" type="button" role="option" :aria-selected="saleDraft.product === p.id" @mousedown.prevent="chooseSaleItem(p)" @click="chooseSaleItem(p)"><span>{{ p.name }}<small>{{ p.sku || p.category_name || 'Sem categoria' }}</small></span><span>{{ money(p.sale_price) }}<small>{{ p.available_stock ?? p.stock }} disponíveis</small></span></button><div v-if="!saleChoices.length" class="empty">Nenhum produto disponível.</div></div>
-            <small v-if="saleDraft.product" class="draft-selected"><AppIcon name="check" :size="14" /> Produto selecionado</small>
           </div><label class="qty-label">Quantidade<input v-model.number="saleDraft.quantity" type="number" min="1" step="1" :max="products.find(p => p.id === Number(saleDraft.product))?.available_stock ?? products.find(p => p.id === Number(saleDraft.product))?.stock" /></label><button type="button" class="btn primary" :disabled="!saleDraft.product || !Number.isInteger(Number(saleDraft.quantity)) || Number(saleDraft.quantity) < 1" @click="addItem"><AppIcon name="add" :size="17" /> Incluir</button></div>
           <div class="cart-heading"><h3>Itens adicionados</h3><span class="count-pill">{{ saleForm.items.length }} itens</span></div>
           <div v-if="!saleForm.items.length" class="empty cart-empty">Nenhum item na venda. Escolha um produto acima para começar.</div>
@@ -577,7 +621,7 @@ function labelStatus(p) {
           <div class="sale-total"><div><span>Subtotal</span><strong>{{ money(subtotal) }}</strong></div><label>Desconto (R$)<input v-model.number="saleForm.discount" type="number" min="0" step="0.01" :max="subtotal" /></label><div class="grand-total"><span>Total da venda</span><strong>{{ money(total) }}</strong></div></div>
           <p v-if="saleForm.items.length && !cartValid" class="validation-hint">Confira quantidades, itens distintos e desconto.</p><button class="btn primary full" type="submit" :disabled="!cartValid || busy"><AppIcon name="check" :size="17" /> {{ busy ? 'Registrando…' : 'Finalizar venda' }}</button>
         </form>
-        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">REGISTROS</span><h2>Últimas vendas</h2></div><span class="count-pill">{{ sales.length }}</span></div><div v-if="!sales.length" class="empty">Ainda não existem vendas registradas.</div><div v-for="sale in sales.slice(0, 15)" :key="sale.id" class="detail-row"><div><strong>Venda #{{ sale.id }}</strong><small>{{ dateTime(sale.created_at) }} · {{ sale.items.length }} produto(s)</small></div><strong class="green-text">{{ money(sale.total) }}</strong></div></article>
+        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">REGISTROS</span><h2>Últimas vendas</h2></div><span class="count-pill">{{ sales.length }}</span></div><div v-if="!sales.length" class="empty">Ainda não existem vendas registradas.</div><div v-for="sale in sales.slice(0, 20)" :key="sale.id" class="detail-row sale-history-row"><div class="sale-history-main"><strong>Venda #{{ sale.id }} <span v-if="sale.canceled_at" class="tag muted-tag">Estornada</span></strong><small>{{ dateTime(sale.created_at) }} · {{ sale.items.length }} item(ns)</small><small v-if="sale.canceled_at">Estornada em {{ dateTime(sale.canceled_at) }} · {{ sale.cancellation_reason }}</small></div><div class="sale-history-actions"><strong :class="sale.canceled_at ? 'muted-price' : 'green-text'">{{ money(sale.total) }}</strong><button v-if="!sale.canceled_at" type="button" class="small-action reverse-sale-action" :disabled="busy" :aria-label="`Estornar venda número ${sale.id}`" @click="openReversal(sale)"><AppIcon name="undo" :size="15" /> Estornar</button><small v-else class="refund-recorded">Reembolso {{ money(sale.refunded_amount) }}</small></div></div></article>
       </div>
     </section>
 
@@ -599,8 +643,20 @@ function labelStatus(p) {
     </footer>
   </main>
 
-  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
+  <div v-if="modal" class="modal-backdrop" @click.self="closeModal"><section class="modal" role="dialog" aria-modal="true" :aria-label="modalTitles[modal]"><header class="modal-header"><div><span class="eyebrow">{{ modal === 'finance' ? 'RELATÓRIOS' : modal === 'sale-reversal' ? 'CANCELAMENTO / DEVOLUÇÃO' : 'ALERTAS DE ESTOQUE' }}</span><h2>{{ modalTitles[modal] }}</h2></div><button class="icon-btn" aria-label="Fechar janela" @click="closeModal"><AppIcon name="close" /></button></header>
     <template v-if="modal === 'finance'"><div class="modal-body"><p class="help-text" style="margin-bottom:18px">Receita após descontos (não equivale a lucro líquido). Filtre o intervalo e explore produtos e categorias.</p><form class="report-filters" @submit.prevent="refreshFinance"><label>Início<input v-model="reportFilters.start" type="date" required /></label><label>Fim<input v-model="reportFilters.end" type="date" required /></label><label>Categoria<select v-model="reportFilters.category"><option value="">Todas</option><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option></select></label><label>Produto<select v-model="reportFilters.product"><option value="">Todos</option><option v-for="p in products.filter(p => !reportFilters.category || String(p.category) === String(reportFilters.category))" :key="p.id" :value="p.id">{{ p.name }}</option></select></label><button class="btn primary" type="submit" :disabled="financeLoading"><AppIcon name="filter" :size="16" /> {{ financeLoading ? 'Consultando…' : 'Aplicar' }}</button></form><div class="report-actions"><button type="button" class="btn secondary" @click="reportFilters = defaultReportFilters(); refreshFinance()">Mês atual</button><button type="button" class="btn secondary" @click="reportFilters = { ...reportFilters, start: `${new Date().getFullYear()}-01-01`, end: localDateISO() }; refreshFinance()">Ano atual</button><button class="btn secondary" @click="exportXlsx('finance')"><AppIcon name="download" :size="16" /> Exportar Excel</button></div><div v-if="finance" class="report-content"><div class="report-summary"><div><small>Receita após descontos</small><strong>{{ money(finance.summary.revenue) }}</strong></div><div><small>Vendas</small><strong>{{ finance.summary.sales_count }}</strong></div><div><small>Unidades vendidas</small><strong>{{ finance.summary.items_sold }}</strong></div><div><small>Ticket médio</small><strong>{{ money(finance.summary.average_ticket) }}</strong></div></div><div class="report-explanation">Bruto: {{ money(finance.summary.gross) }} · Descontos atribuídos: {{ money(finance.summary.discounts) }}. A análise considera somente os filtros aplicados.</div><div class="report-grid"><div><h3>Desempenho por categoria</h3><div v-if="!finance.categories.length" class="empty">Sem vendas neste período.</div><div v-for="c in finance.categories" :key="c.name" class="detail-row"><div><strong>{{ c.name }}</strong><small>{{ c.quantity }} unidades</small></div><b>{{ money(c.revenue) }}</b></div></div><div><h3>Produtos vendidos</h3><div v-if="!finance.products.length" class="empty">Sem itens vendidos.</div><div v-for="p in finance.products" :key="p.id" class="detail-row"><div><strong>{{ p.name }}</strong><small>{{ p.category }} · {{ p.quantity }} un.</small></div><b>{{ money(p.revenue) }}</b></div></div></div><h3 style="margin-top:24px">Evolução por dia</h3><div v-if="!finance.daily.length" class="empty">Nenhuma venda no período selecionado.</div><div v-for="d in finance.daily" :key="d.date" class="detail-row"><span>{{ shortDate(d.date) }}</span><span>{{ d.quantity }} unidades</span><strong>{{ money(d.revenue) }}</strong></div></div></div></template>
+    <template v-else-if="modal === 'sale-reversal' && saleToReverse">
+      <form class="reversal-form" @submit.prevent="confirmReversal">
+        <div class="modal-body">
+          <p class="help-text">O estorno é <strong>integral</strong>. Todos os produtos desta venda voltam ao estoque, preservando os lotes e o histórico original. A venda deixa de contar nos gráficos e relatórios.</p>
+          <div class="reversal-summary"><span>Venda #{{ saleToReverse.id }}</span><strong>{{ money(saleToReverse.total) }}</strong><small>Valor de reembolso a registrar</small></div>
+          <label>Motivo do estorno<select v-model="reversalReason" required><option v-for="reason in reversalReasons" :key="reason" :value="reason">{{ reason }}</option></select></label>
+          <label v-if="reversalReason === 'Outro motivo'">Descreva o motivo<input v-model="reversalDetails" required minlength="3" maxlength="255" placeholder="Motivo do estorno" /></label>
+          <p class="reversal-notice"><AppIcon name="info" :size="17" /> O sistema registra o valor devolvido na contabilidade da venda, mas não transfere dinheiro automaticamente ao cliente. Faça o reembolso no meio de pagamento utilizado.</p>
+        </div>
+        <footer class="modal-footer"><button type="button" class="btn secondary" @click="closeModal">Voltar</button><button class="btn danger" type="submit" :disabled="busy || !reversalValid"><AppIcon name="undo" :size="17" /> {{ busy ? 'Estornando…' : 'Confirmar estorno' }}</button></footer>
+      </form>
+    </template>
     <template v-else><div class="modal-body"><p class="help-text">{{ modal === 'critico' ? 'Produtos ativos com saldo igual ou inferior ao estoque mínimo, inclusive itens com validade comprometida.' : modal === 'vencido' ? 'Produtos ativos com saldo disponível e validade já ultrapassada.' : 'Produtos ativos que vencem nos próximos 15 dias, incluindo hoje.' }}</p><div v-if="!modalItems.length" class="empty">Nenhum produto nesta situação.</div><div v-for="p in modalItems" :key="p.id" class="modal-product"><span class="product-avatar"><AppIcon name="package" /></span><div><strong>{{ p.name }}</strong><small>{{ p.category_name || 'Sem categoria' }} · {{ p.sku || 'Sem SKU' }}</small><small v-if="p.nearest_expiration || p.expiration_date">Validade mais próxima: {{ shortDate(p.nearest_expiration || p.expiration_date) }}</small></div><div class="modal-product-end"><b>{{ p.stock }} un.</b><small>Vendável: {{ p.available_stock ?? p.stock }}</small><small>Mínimo: {{ p.minimum_stock }}</small></div></div></div><footer class="modal-footer"><button class="btn secondary" @click="closeModal">Fechar</button><button class="btn primary" @click="openInventory(modal)">Ver na tela de estoque <AppIcon name="arrow" :size="15" /></button></footer></template>
   </section></div>
 </div>

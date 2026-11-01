@@ -132,10 +132,12 @@ class SaleSerializer(serializers.ModelSerializer):
     items = SaleItemReadSerializer(many=True, read_only=True)
     subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    refunded_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = Sale
-        fields = ["id", "created_at", "discount", "subtotal", "total", "items"]
+        fields = ["id", "created_at", "discount", "subtotal", "total", "items",
+                  "canceled_at", "cancellation_reason", "canceled_by", "refunded_amount"]
 
 
 class SaleItemWriteSerializer(serializers.Serializer):
@@ -223,7 +225,8 @@ class StockMovementSerializer(serializers.ModelSerializer):
 
     def get_lots(self, obj):
         outgoing = [
-            {'expiration_date': a.lot.expiration_date, 'quantity': -a.quantity}
+            {'expiration_date': a.lot.expiration_date,
+             'quantity': a.quantity if obj.reason == StockMovement.Reason.REVERSAL else -a.quantity}
             for a in obj.lot_allocations.select_related('lot').all()
         ]
         incoming = [

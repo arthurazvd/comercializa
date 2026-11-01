@@ -46,6 +46,15 @@ class Product(models.Model):
 class Sale(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    canceled_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    cancellation_reason = models.CharField(max_length=255, blank=True, default='')
+    canceled_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='canceled_sales')
+
+    @property
+    def refunded_amount(self):
+        # Valor de reembolso contabilizado; não dispara pagamento externo.
+        return self.total if self.canceled_at else Decimal('0')
 
     @property
     def subtotal(self):
@@ -75,6 +84,7 @@ class StockMovement(models.Model):
 
     class Reason(models.TextChoices):
         SALE = "sale", "Venda"
+        REVERSAL = "reversal", "Estorno de venda"
         ADJUSTMENT = "adjustment", "Ajuste manual"
 
     class Justification(models.TextChoices):

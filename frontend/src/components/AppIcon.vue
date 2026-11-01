@@ -22,6 +22,7 @@ const paths = {
   edit: 'M4 20h5l11-11-5-5L4 15v5z M13 6l5 5',
   trash: 'M4 7h16 M9 7V4h6v3 M6 7l1 14h10l1-14 M10 11v6 M14 11v6',
   refresh: 'M20 6v5h-5 M4 18v-5h5 M5 9a8 8 0 0 1 14-3l1 5 M4 13l1 5a8 8 0 0 0 14-3',
+  undo: 'M9 14 4 9l5-5 M4 9h10a6 6 0 0 1 0 12h-2',
   chevron: 'm7 10 5 5 5-5',
   arrow: 'M5 12h14m-6-6 6 6-6 6',
   money: 'M3 7h18v12H3z M3 7l3-3h12l3 3 M12 10a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',

@@ -28,8 +28,9 @@ def dashboard_data():
     last_30_days = timezone.now() - timedelta(days=30)
     expiration_limit = today + timedelta(days=15)
 
-    sales_30 = Sale.objects.filter(created_at__gte=last_30_days)
-    items_30 = SaleItem.objects.filter(sale__created_at__gte=last_30_days)
+    sales_30 = Sale.objects.filter(created_at__gte=last_30_days, canceled_at__isnull=True)
+    items_30 = SaleItem.objects.filter(sale__created_at__gte=last_30_days,
+                                       sale__canceled_at__isnull=True)
 
     revenue_expression = ExpressionWrapper(
         F("quantity") * F("unit_price"),

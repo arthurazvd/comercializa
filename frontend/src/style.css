@@ -446,3 +446,69 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .chart-data-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 3px; border-bottom: 1px solid var(--stroke); font-size: 11px; color: var(--ink); }
   .chart-data-list > div strong { text-align: right; }
 }
+
+/* Atualização 06 — venda compacta, layout previsível e estorno auditável */
+.sale-draft {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(90px, 106px) max-content;
+  align-items: end;
+  gap: 12px;
+}
+.sale-draft .sale-product-field { min-width: 0; }
+.sale-draft .sale-search-box { min-height: 44px; }
+.sale-draft .sale-search-box.is-selected {
+  border-color: #0fa984;
+  box-shadow: 0 0 0 2px rgba(15, 169, 132, .10);
+  color: #079777;
+}
+.sale-draft .sale-search-box input { flex: 1 1 auto; width: 100%; min-height: 42px; }
+.sale-draft .qty-label { min-width: 0; width: 100%; }
+.sale-draft .qty-label input { width: 100%; min-height: 44px; }
+.sale-draft > button { min-height: 44px; align-self: end; }
+.sale-draft .sale-results { width: 100%; min-width: 0; }
+.sale-history-main { min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+.sale-history-main > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.sale-history-main .tag { font-size: 9px; padding: 3px 7px; }
+.sale-history-actions { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.sale-history-actions .reverse-sale-action { min-height: 30px; color: #bd6b33; }
+.sale-history-actions .muted-price { color: var(--muted); text-decoration: line-through; }
+.sale-history-actions .refund-recorded { color: #0b9976; text-align: right; }
+.btn.danger { color: #fff; background: #bd474d; border: 1px solid #bd474d; }
+.btn.danger:hover:not(:disabled) { background: #a1343a; }
+.reversal-form { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
+.reversal-form .modal-body { display: flex; flex-direction: column; gap: 16px; }
+.reversal-form label { display: grid; gap: 7px; font-size: 12px; font-weight: 700; }
+.reversal-form input, .reversal-form select { min-height: 44px; width: 100%; }
+.reversal-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; padding: 15px; background: var(--canvas); border: 1px solid var(--stroke); border-radius: 12px; }
+.reversal-summary > span { font-weight: 750; }
+.reversal-summary strong { font-size: 22px; color: var(--ink); }
+.reversal-summary small { flex-basis: 100%; color: var(--muted); }
+.reversal-notice { display: flex; align-items: flex-start; gap: 10px; background: var(--canvas); padding: 13px; border-radius: 10px; border: 1px solid var(--stroke); }
+.reversal-notice svg { flex-shrink: 0; color: #b97b2f; }
+@media (max-width: 800px) {
+  .sale-draft { grid-template-columns: minmax(0,1fr) minmax(90px,110px); gap: 10px; }
+  .sale-draft .sale-product-field { grid-column: 1 / -1; }
+  .sale-draft > button { width: 100%; }
+}
+@media (max-width: 620px) {
+  .sale-draft { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, 1fr); padding: 13px; gap: 12px; }
+  .sale-draft .sale-product-field { grid-column: 1 / -1; }
+  .sale-draft .qty-label { min-width: 0; }
+  .sale-draft > button { min-height: 45px; }
+  .sale-history-actions { gap: 10px; }
+  .sale-history-row { align-items: flex-start; }
+  .reversal-form .modal-footer { flex-wrap: wrap; }
+  .reversal-form .modal-footer button { flex: 1 1 135px; min-height: 46px; }
+}
+@media (max-width: 360px) {
+  .sale-draft { grid-template-columns: minmax(0, 1fr) 1fr; }
+  .sale-history-row { flex-wrap: wrap; }
+  .sale-history-actions { flex: 1 1 100%; flex-direction: row; justify-content: space-between; align-items: center; }
+}
+/* A coluna de vendas pode ficar estreita mesmo com viewport desktop. */
+.sale-panel { container-type: inline-size; }
+@container (max-width: 530px) {
+  .sale-draft { grid-template-columns: minmax(0, 1fr) minmax(108px, 145px); }
+  .sale-draft .sale-product-field { grid-column: 1 / -1; }
+  .sale-draft > button { width: 100%; }
+}

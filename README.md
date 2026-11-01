@@ -8,6 +8,24 @@ O repositório foi separado em:
 - `frontend/`: interface em Vue 3 + Vite.
 - `docs/`: documentação do projeto, requisitos, visão, arquitetura, SAD e testes.
 
+## Atualização 06 — confirmação de operações, estorno e gráficos (31/10/2026)
+
+- **Confirmação pós-timeout:** o frontend consulta `GET /api/operations/<chave>/` para recuperar o resultado já registrado pelo backend. A mesma chave idempotente é preservada na sessão, mesmo após recarregar a página, sem armazenar dados de venda no navegador. Repetições de cadastros/vendas não devem duplicar estoque ou receita.
+- **Gráficos/tabelas atualizados:** depois de uma venda ou estorno, o sistema invalida e atualiza dashboard, relatórios, posição de estoque e histórico. As consultas GET usam marcador de atualização para não depender de cache de navegador/proxy. Há sincronização periódica quando a tela está visível (20 segundos para dashboard e vendas); não atualiza na aba em segundo plano.
+- **Estorno integral:** botão **Estornar** no histórico de vendas, com confirmação e motivo. A API `POST /api/sales/<id>/cancel/` devolve estoque aos lotes de origem (incluindo preservação de validade), grava movimentações inversas, marca a venda cancelada sem apagá-la e remove essa receita dos relatórios e gráficos. Repetir o cancelamento não duplica a devolução.
+- **Reembolso:** o valor integral líquido da venda, já descontados os descontos concedidos, é registrado como `refunded_amount`. **Não há integração de pagamento; o dinheiro precisa ser devolvido ao cliente manualmente** (maquininha, Pix, dinheiro, etc.). O app deixa isso explícito na confirmação. Estornos parciais não estão disponíveis nesta versão.
+- **UI:** seleção de produto sem linha que muda a altura do formulário, alinhamento responsivo pela largura real do cartão, ícone de seleção no campo e avisos transitórios para falhas de atualização dos gráficos.
+
+### Publicação obrigatória da atualização 06
+
+1. **Faça backup do banco PostgreSQL Neon** antes de atualizar. Preserve a configuração e os dados reais; nunca execute `seed_demo` em produção.
+2. Publique **primeiro o backend no Render**. A migração `core.0006_sale_reversal` adiciona os campos de estorno; `build.sh` executa `manage.py migrate --noinput` no deploy. Confirme que a API online está saudável e que a migração terminou sem erro.
+3. Publique **depois o frontend no Cloudflare Pages**, mantendo a variável `VITE_API_URL` e o domínio permitido em `CORS_ALLOWED_ORIGINS`. Se o Cloudflare mantiver arquivos JS antigos, faça um novo deploy/limpeza de cache dos assets.
+4. Teste uma venda pequena: confirme que aparece imediatamente no histórico, nos indicadores e nos gráficos; faça o estorno, verifique saldo/lotes, histórico e que os valores deixaram de contar em relatórios. O estado **Estornada** permanece visível para auditoria.
+5. O Render Free pode suspender o serviço quando não há acesso, ainda sujeito a atraso no primeiro acesso. O código melhora a recuperação da operação, mas não elimina o cold start do host.
+
+**Testes executados neste ambiente:** 47 testes do frontend passaram, além de verificação de sintaxe Python. Os testes de integração Django foram adicionados mas não puderam ser executados aqui, pois não havia dependências Django nem acesso à rede para instalá-las. O deploy online também não foi realizado.
+
 ## Atualização 05 — conectividade, gráficos e celular (31/10/2026)
 
 - **Logo horizontal** na conexão e no login, mantendo os SVGs oficiais.

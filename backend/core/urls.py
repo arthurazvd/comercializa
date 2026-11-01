@@ -3,7 +3,7 @@ from .auth_views import HealthView, SessionStatusView, LoginView, LogoutView
 from rest_framework.routers import DefaultRouter
 from .views import (
     CategoryViewSet, ProductViewSet, SaleListCreateView,
-    StockMovementListCreateView, DashboardView,
+    StockMovementListCreateView, DashboardView, SaleCancelView, OperationStatusView,
 )
 
 from .export_views import StockOverviewView, StockExportView, FinanceReportView, FinanceExportView
@@ -19,6 +19,8 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("", include(router.urls)),
     path("sales/", SaleListCreateView.as_view(), name="sales"),
+    path("sales/<int:pk>/cancel/", SaleCancelView.as_view(), name="sale-cancel"),
+    path("operations/<str:key>/", OperationStatusView.as_view(), name="operation-status"),
     path("stock-movements/", StockMovementListCreateView.as_view(), name="stock-movements"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("stock-overview/", StockOverviewView.as_view(), name="stock-overview"),

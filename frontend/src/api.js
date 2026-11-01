@@ -10,9 +10,11 @@ export function getAuthToken() {
   try { return window.sessionStorage.getItem(TOKEN_KEY) || '' } catch { return '' }
 }
 export function saveAuthToken(token) {
+  pendingPosts.clear()
   try { window.sessionStorage.setItem(TOKEN_KEY, token) } catch { /* sem armazenamento */ }
 }
 export function clearAuthToken() {
+  pendingPosts.clear()
   try { window.sessionStorage.removeItem(TOKEN_KEY) } catch { /* sem armazenamento */ }
 }
 
@@ -23,6 +25,10 @@ export const api = axios.create({ baseURL: apiBaseURL, timeout: 110000 })
 api.interceptors.request.use(config => {
   const token = getAuthToken()
   if (token) config.headers.Authorization = `Token ${token}`
+  // Evita relatórios e listas antigas servidos pelo cache do navegador/proxy.
+  if (config.method?.toLowerCase() === 'get') {
+    config.params = { ...(config.params || {}), __fresh: Date.now() }
+  }
   return config
 })
 
@@ -54,35 +60,89 @@ api.interceptors.response.use(
 )
 
 const pendingPosts = new Map()
+// A sessão guarda apenas UUID + hash de uma operação não confirmada (nunca
+// produto, venda ou senha). Assim, atualizar a página não perde a chave.
+async function pendingStorageName(signature) {
+  if (!globalThis.crypto?.subtle || !globalThis.TextEncoder) return ''
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${getAuthToken()}|${signature}`))
+  return `comercializa_op_${Array.from(new Uint8Array(digest), n => n.toString(16).padStart(2, '0')).join('')}`
+}
+function pendingFromStorage(name) {
+  if (!name) return null
+  try {
+    const item = JSON.parse(window.sessionStorage.getItem(name) || 'null')
+    if (item?.key && Number.isFinite(item.at) && Date.now() - item.at < 86400000) return item.key
+    window.sessionStorage.removeItem(name)
+  } catch { /* armazenamento indisponível */ }
+  return null
+}
+function setPendingStorage(name, key) {
+  if (!name) return
+  try {
+    if (key) window.sessionStorage.setItem(name, JSON.stringify({ key, at: Date.now() }))
+    else window.sessionStorage.removeItem(name)
+  } catch { /* armazenamento indisponível */ }
+}
 function newOperationId() {
   return globalThis.crypto?.randomUUID?.() || `op_${Date.now()}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`
 }
 
-/** Uma operação reenvia sempre o MESMO identificador se a conexão se perder.
- * A transação do backend armazena a resposta, devolvendo-a no segundo envio.
- * Somente 400/401/403/404/409/422 definitivos liberam a chave.
+/** Confirma no banco a operação que pode ter sido concluída sem resposta HTTP. */
+async function findConfirmedPost(url, key) {
+  try {
+    const { data } = await api.get(`operations/${key}/`, {
+      timeout: 20000, __readRetry: 1,
+    })
+    const normalizedPath = `/api/${url.replace(/^\/+/, '')}`
+    if (data?.confirmed && data.path === normalizedPath && data.status >= 200 && data.status < 300) {
+      return { data: data.data, status: data.status, headers: { 'x-operation-confirmed': 'true' } }
+    }
+  } catch (error) {
+    if (error?.response?.status === 401 || error?.response?.status === 403) throw error
+    // 404 = operação ainda não confirmada. Em falha de rede, o POST seguinte
+    // reutiliza a mesma chave; a API garante execução única no banco.
+  }
+  return null
+}
+
+/** Reenvio seguro: consulta a confirmação persistida antes de repetir um POST.
+ * A chave fica pendente em caso de interrupção, não é descartada por timeout.
  */
 export async function postWithRecovery(url, payload) {
   const signature = `${url}:${JSON.stringify(payload)}`
-  let key = pendingPosts.get(signature)
-  if (!key) {
-    key = newOperationId()
-    pendingPosts.set(signature, key)
-  }
-  const config = { headers: { 'Idempotency-Key': key }, timeout: 120000 }
+  const storedName = await pendingStorageName(signature)
+  const oldKey = pendingFromStorage(storedName)
+  let key = pendingPosts.get(signature) || oldKey
+  const resumed = Boolean(oldKey)
+  if (!key) key = newOperationId()
+  pendingPosts.set(signature, key)
+  setPendingStorage(storedName, key)
+  const config = { headers: { 'Idempotency-Key': key }, timeout: 95000 }
   try {
-    let response
+    let response = resumed ? await findConfirmedPost(url, key) : null
     try {
-      response = await api.post(url, payload, config)
+      if (!response) response = await api.post(url, payload, config)
     } catch (error) {
       if (!isTransientFailure(error)) throw error
-      await new Promise(resolve => setTimeout(resolve, 900))
-      response = await api.post(url, payload, config)
+      response = await findConfirmedPost(url, key)
+      if (!response) {
+        try {
+          response = await api.post(url, payload, config)
+        } catch (retryError) {
+          if (!isTransientFailure(retryError)) throw retryError
+          response = await findConfirmedPost(url, key)
+          if (!response) throw retryError
+        }
+      }
     }
     pendingPosts.delete(signature)
+    setPendingStorage(storedName, null)
     return response
   } catch (error) {
-    if (!isTransientFailure(error)) pendingPosts.delete(signature)
+    if (!isTransientFailure(error)) {
+      pendingPosts.delete(signature)
+      setPendingStorage(storedName, null)
+    }
     throw error
   }
 }
