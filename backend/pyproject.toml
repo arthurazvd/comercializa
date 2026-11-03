@@ -1,0 +1,7 @@
+[tool.mutmut]
+# Escopo piloto: regras de cálculo do SAD e estoque. Ampliar após primeira execução.
+source_paths = ["core/"]
+only_mutate = ["core/services.py", "core/stock_lots.py"]
+pytest_add_cli_args_test_selection = ["tests/"]
+pytest_add_cli_args = ["--no-cov", "-q"]
+also_copy = ["config/", "pytest.ini"]

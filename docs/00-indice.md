@@ -58,3 +58,10 @@ O conjunto `01`–`16` permanece como documentação funcional e acadêmica de b
 - [Gestão financeira: lucro bruto, despesas, compras, investimentos, Excel, API, casos de uso e testes](25-gestao-financeira.md)
 
 - [Cadastro de produtos, descrição, rotas e visualização (V1.5.0)](26-cadastro-descricao-rotas-visualizacao.md)
+
+## Entrega de testes de mutação e CI (novembro/2026)
+
+- [27 — Testes de Mutação: plano, execução, métrica e evidências](27-testes-de-mutacao.md)
+- [28 — Manual de Execução do Projeto](28-manual-de-execucao.md)
+- [29 — GitFlow, Milestone, Cobertura e SonarQube](29-ci-sonarqube-gitflow.md)
+- [30 — Validação local e evidências pendentes](30-validacao-e-evidencias.md)

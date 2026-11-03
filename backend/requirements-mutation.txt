@@ -1,0 +1,3 @@
+-r requirements.txt
+# Ferramenta de mutação usada apenas na etapa manual (GitHub Actions / Linux / WSL).
+mutmut>=3.8,<4
