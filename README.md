@@ -65,6 +65,7 @@ npm ci && npm test && npm run build
 - [Manual de Execução do Projeto](docs/28-manual-de-execucao.md)
 - [GitFlow, milestone e SonarQube](docs/29-ci-sonarqube-gitflow.md)
 - [Evidências e validação desta entrega](docs/30-validacao-e-evidencias.md)
+- [Refatoração dos apontamentos SonarQube](docs/31-refatoracao-sonarqube.md)
 
 ## Repositório e contribuições
 

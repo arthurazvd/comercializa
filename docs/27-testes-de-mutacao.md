@@ -6,7 +6,7 @@ Avaliar a **capacidade dos testes de detectar defeitos**. Cobertura de linhas el
 
 ## Escopo e ferramenta
 
-- **Ferramenta:** `mutmut` 3.x (Python).
+- **Ferramenta:** `mutmut` 2.5.1 (Python, versão fixada para testes Django).
 - **Escopo piloto:** `backend/core/services.py` (cálculos e dashboard/SAD) e `backend/core/stock_lots.py` (estoque por lote), configurados em `backend/pyproject.toml`.
 - **Testes executados:** `backend/tests/` com `pytest`; o banco de teste deve ser isolado, usando `DEBUG=True` e SQLite local.
 - **Não estão no escopo inicial:** frontend e outras partes do backend. Ampliar progressivamente após interpretar mutantes sobreviventes.
@@ -23,7 +23,7 @@ Avaliar a **capacidade dos testes de detectar defeitos**. Cobertura de linhas el
 
 ## Executar localmente (Linux / WSL)
 
-> O `mutmut` usa `fork`, que não funciona diretamente no PowerShell do Windows. Use **WSL**, Linux ou o job manual do GitHub Actions. Consulte a [documentação do mutmut](https://mutmut.readthedocs.io/en/latest/).
+> A versão 3.x apresentou no GitHub Actions **156 testes aprovados, mas zero testes associados aos mutantes** (problema de importação/instrumentação em projeto Django). A configuração atual fixa `mutmut==2.5.1`, que aplica a mutação no arquivo original durante a execução e o restaura. Execute em Linux/WSL ou no GitHub Actions, em branch de trabalho e sem mudanças locais não commitadas. Essa correção ainda depende da execução no CI para validação.
 
 ```bash
 cd backend
@@ -34,7 +34,9 @@ python -m pytest tests --no-cov -q
 mutmut run
 mutmut results
 # opcional: investigação interativa
-mutmut browse
+mutmut show all
+# opcional: relatório XML para evidência
+mutmut junitxml > mutation-results.xml
 ```
 
 **GitHub Actions:** abra **Actions → Testes de mutação (sob demanda) → Run workflow** na branch de trabalho. O primeiro push em `feature/testes-mutacao` também dispara esse job; o botão manual fica disponível após o workflow ser incorporado à branch padrão. O job mantém resultado e eventuais artefatos; uma execução de mutação pode levar mais tempo que a suíte habitual. O `mutmut` não é acionado a cada push para não bloquear alterações comuns por seu custo computacional.
@@ -52,7 +54,7 @@ Preencher uma linha **somente depois da execução real**, anexando link do job 
 ## Riscos e cuidados
 
 - Nunca rodar contra a base Neon de produção. Garanta que `DATABASE_URL` não esteja definido na sessão usada nos testes.
-- Falhas de `mutmut` por configuração devem ser corrigidas antes de tratar scores como evidência válida.
+- Falhas de `mutmut` por configuração devem ser corrigidas antes de tratar scores como evidência válida. A execução anterior com 156 testes aprovados NÃO produziu taxa de mutação válida.
 - Mutantes equivalentes à lógica original precisam de análise e justificativa; resultados automáticos não são prova de qualidade isoladamente.
 
 Ver também [Plano de Testes](07-plano-de-testes.md), [CI e GitFlow](29-ci-sonarqube-gitflow.md) e [Manual de Execução](28-manual-de-execucao.md).

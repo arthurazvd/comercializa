@@ -17,3 +17,17 @@
 - **Milestone e branches remotas:** não criados pelo ZIP; exigem autenticação/permissão na conta GitHub. A documentação contém os passos e comandos.
 
 Anexar nesta página, após a publicação, links do Actions, URL do SonarQube, percentual medido, resultado do mutmut e link do Pull Request. Não substituir resultados ausentes por estimativas.
+
+
+## Refatoração dos apontamentos SonarQube (03/11/2026)
+
+Foram alterados os módulos `core/reports.py`, `core/services.py`, `core/stock_lots.py`,
+`core/serializers.py`, `core/xlsx_export.py`, `core/export_views.py`,
+`core/views.py` e `core/management/commands/bootstrap_admin.py`.
+A intenção é reduzir a complexidade cognitiva por extração de responsabilidades,
+sem alterar as regras financeiras, de estoque, vendas ou estorno.
+
+**Validação pendente:** rodar `pytest` completo, conferir cobertura >=70%,
+executar `mutmut run` e confirmar fechamento dos apontamentos no Quality Gate
+SonarQube após enviar commit na `feature/testes-mutacao`.
+Não registrar os 11 apontamentos como resolvidos no SonarQube antes de nova análise.

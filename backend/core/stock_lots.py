@@ -37,38 +37,47 @@ def stock_snapshot(product, today=None):
     }
 
 
-def consume_lots(product, quantity, *, sale_only):
-    """Desconta saldos de lotes; executado dentro da transação do estoque.
+def _eligible_stock(product, lots, legacy, today, sale_only, quantity):
+    if not sale_only:
+        return lots, legacy
+    eligible_lots = [lot for lot in lots
+                     if lot.expiration_date is None or lot.expiration_date >= today]
+    eligible_legacy = legacy if not product.expiration_date or product.expiration_date >= today else 0
+    if quantity > eligible_legacy + sum(lot.quantity for lot in eligible_lots):
+        raise serializers.ValidationError({'items': f"Estoque válido insuficiente para '{product.name}'."})
+    return eligible_lots, eligible_legacy
 
-    Retorna pares (lote, quantidade) para auditoria em StockLotAllocation.
-    O saldo legado é implícito, não precisa ser atualizado separadamente.
-    """
-    today = timezone.localdate()
-    # Validade NULL significa não perecível e deve sair por último no FEFO.
-    lots = sorted(product.lots.select_for_update().all(),
-                  key=lambda lot: (lot.expiration_date or date.max,
-                                   0 if lot.receipt_movement_id is None else 1, lot.pk))
-    tracked = sum(lot.quantity for lot in lots)
-    legacy = max(0, product.stock - tracked)
-    if sale_only:
-        eligible_lots = [l for l in lots if l.expiration_date is None or l.expiration_date >= today]
-        eligible_legacy = legacy if not product.expiration_date or product.expiration_date >= today else 0
-        if quantity > eligible_legacy + sum(l.quantity for l in eligible_lots):
-            raise serializers.ValidationError({'items': f"Estoque válido insuficiente para '{product.name}'."})
-    else:
-        eligible_lots = lots  # inclui avarias e descartes de itens vencidos
-        eligible_legacy = legacy
+
+def _consume_available_lots(lots, quantity):
     remaining = quantity
     consumed = []
-    for lot in eligible_lots:
+    for lot in lots:
         amount = min(remaining, lot.quantity)
         if amount:
-            if not type(lot).objects.filter(pk=lot.pk, quantity__gte=amount).update(quantity=F('quantity') - amount):
+            updated = type(lot).objects.filter(pk=lot.pk, quantity__gte=amount).update(
+                quantity=F('quantity') - amount
+            )
+            if not updated:
                 raise serializers.ValidationError({'delta': 'Lote alterado simultaneamente. Tente novamente.'})
             consumed.append((lot, amount))
             remaining -= amount
         if remaining == 0:
             break
+    return consumed, remaining
+
+
+def consume_lots(product, quantity, *, sale_only):
+    """Desconta lotes por FEFO dentro da transação e devolve a alocação auditável."""
+    today = timezone.localdate()
+    lots = sorted(product.lots.select_for_update().all(),
+                  key=lambda lot: (lot.expiration_date or date.max,
+                                   0 if lot.receipt_movement_id is None else 1, lot.pk))
+    tracked = sum(lot.quantity for lot in lots)
+    legacy = max(0, product.stock - tracked)
+    eligible_lots, eligible_legacy = _eligible_stock(
+        product, lots, legacy, today, sale_only, quantity
+    )
+    consumed, remaining = _consume_available_lots(eligible_lots, quantity)
     if remaining > eligible_legacy:
         raise serializers.ValidationError({'delta': 'Saldo disponível insuficiente.'})
     return consumed

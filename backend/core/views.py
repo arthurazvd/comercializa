@@ -4,7 +4,7 @@ from django.utils import timezone
 from io import BytesIO
 import re
 import warnings
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser
 
@@ -66,7 +66,7 @@ class ProductViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
                     if check.format != 'JPEG' or max(check.size) > 4096:
                         raise ValueError('Formato ou dimensões inválidas')
                     check.verify()
-        except (UnidentifiedImageError, ValueError, OSError, Image.DecompressionBombWarning, Image.DecompressionBombError):
+        except (ValueError, OSError, Image.DecompressionBombWarning, Image.DecompressionBombError):
             return Response({'image': ['JPEG inválido ou dimensões acima de 4096 pixels.']}, status=400)
         code = re.sub(r'[^A-Za-z0-9_-]+', '-', product.sku or str(product.pk)).strip('-')[:70] or str(product.pk)
         filename = f'{code}.jpg'
@@ -161,7 +161,7 @@ class SaleCancelView(APIView):
             # Um timeout da resposta anterior não deve criar outro estorno.
             return Response(SaleSerializer(sale).data,
                             headers={'X-Idempotent-Replay': 'true'})
-        items = list(sale.items.all())
+        items = sale.items.all()
         original_movements = list(StockMovement.objects.filter(
             sale=sale, reason=StockMovement.Reason.SALE,
         ).prefetch_related('lot_allocations').order_by('product_id', 'pk'))
