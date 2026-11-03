@@ -19,3 +19,10 @@ dist/
 Thumbs.db
 
 .coverage
+
+# Relatórios de qualidade, mutação e testes
+coverage.xml
+htmlcov/
+.pytest_cache/
+.mutmut-cache
+mutants/

@@ -117,3 +117,10 @@ Ver também [docs/18-identidade-estoque-relatorios-2026-10-29.md](18-identidade-
 ## Cobertura adicional V1.5.0
 
 Frontend: `navigation-and-product-v150.test.js` — rotas, URL do Financeiro, finalização do cadastro, descrição, zoom e foco do catálogo. Backend: `test_product_description_v150.py` — persistência de descrição, campo opcional e limite de 2000 caracteres. Validar manualmente no Render e em dispositivo móvel o timeout, a fotografia e o recarregamento em URLs internas.
+
+
+## Integração contínua e mutação — atividade da disciplina (novembro/2026)
+
+A CI usa `pytest --cov=core --cov-fail-under=70` (Python/backend) e bloqueia o job se qualquer teste reprovar ou a cobertura cair abaixo de 70%. O relatório XML da cobertura é utilizado pelo SonarQube e fica disponível como artefato no GitHub Actions. O frontend é validado com `npm ci`, `npm test` e `npm run build`, **sem atribuir um percentual de cobertura JS que ainda não foi medido**.
+
+A execução de testes de mutação é **manual e documentada** com `mutmut`, visando inicialmente os serviços de negócio e as regras de lotes; resultados e taxas só são registrados após execução real. Consulte [Testes de Mutação](27-testes-de-mutacao.md), [GitFlow/CI/SonarQube](29-ci-sonarqube-gitflow.md) e [Manual de Execução](28-manual-de-execucao.md).

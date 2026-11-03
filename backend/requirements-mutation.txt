@@ -1,0 +1,3 @@
+-r requirements.txt
+# Mutmut 2 opera sobre o código real (evita falha de descoberta do mutmut 3 com Django).
+mutmut==2.5.1
