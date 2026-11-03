@@ -278,12 +278,18 @@ class StockAdjustmentSerializer(serializers.Serializer):
     justification = serializers.ChoiceField(choices=StockMovement.Justification.choices, required=False, default='')
 
     def validate(self, attrs):
+        self._validate_direction_and_expiration(attrs)
+        self._validate_purchase_fields(attrs)
+        return attrs
+
+    @staticmethod
+    def _validate_direction_and_expiration(attrs):
         delta = attrs.get('delta', 0)
         expiry = attrs.get('expiration_date')
         justification = attrs.get('justification', '')
         incoming = (StockMovement.Justification.RECEIPT, StockMovement.Justification.RETURN)
         outgoing = (StockMovement.Justification.DAMAGE, StockMovement.Justification.DISCARD)
-        if justification in incoming and delta < 0 or justification in outgoing and delta > 0:
+        if (justification in incoming and delta < 0) or (justification in outgoing and delta > 0):
             raise serializers.ValidationError({'justification': 'A justificativa é incompatível com entrada ou saída.'})
         if delta > 0 and attrs['product'].perishable and not expiry:
             raise serializers.ValidationError({'expiration_date': 'Informe a validade do novo lote para este perecível.'})
@@ -291,67 +297,82 @@ class StockAdjustmentSerializer(serializers.Serializer):
             raise serializers.ValidationError({'expiration_date': 'Validade de lote só é permitida em entradas.'})
         if expiry and expiry < timezone.localdate():
             raise serializers.ValidationError({'expiration_date': 'Não é permitido receber um lote já vencido.'})
-        purchase = delta > 0 and justification == StockMovement.Justification.RECEIPT
-        if not purchase and any(field in attrs for field in ('unit_cost', 'new_sale_price')):
-            raise serializers.ValidationError({'unit_cost': 'Custos e preços de compra só são alterados em Recebimento.'})
-        if not purchase and attrs.get('update_reference_cost'):
-            raise serializers.ValidationError({'update_reference_cost': 'Ajuste de custo somente em Recebimento.'})
-        if purchase:
-            current = attrs['product']
-            cost = attrs.get('unit_cost', current.purchase_price)
-            price = attrs.get('new_sale_price', current.sale_price)
-            if price <= cost:
-                raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve ser maior que o custo deste recebimento. Informe um novo preço.'})
-            attrs['unit_cost'] = cost
-        return attrs
+
+    @staticmethod
+    def _validate_purchase_fields(attrs):
+        purchase = (attrs.get('delta', 0) > 0
+                    and attrs.get('justification', '') == StockMovement.Justification.RECEIPT)
+        if not purchase:
+            if any(field in attrs for field in ('unit_cost', 'new_sale_price')):
+                raise serializers.ValidationError({'unit_cost': 'Custos e preços de compra só são alterados em Recebimento.'})
+            if attrs.get('update_reference_cost'):
+                raise serializers.ValidationError({'update_reference_cost': 'Ajuste de custo somente em Recebimento.'})
+            return
+        product = attrs['product']
+        cost = attrs.get('unit_cost', product.purchase_price)
+        price = attrs.get('new_sale_price', product.sale_price)
+        if price <= cost:
+            raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve ser maior que o custo deste recebimento. Informe um novo preço.'})
+        attrs['unit_cost'] = cost
 
     def validate_delta(self, value):
         if value == 0:
             raise serializers.ValidationError("A movimentação deve ser diferente de zero.")
         return value
 
-    @transaction.atomic
-    def create(self, validated_data):
-        product = Product.objects.select_for_update().get(pk=validated_data["product"].pk)
-        delta = validated_data["delta"]
-        after = product.stock + delta
-        if not 0 <= after <= 2147483647:
-            raise serializers.ValidationError({"delta": "Estoque resultante inválido."})
-        is_purchase = delta > 0 and validated_data.get('justification') == StockMovement.Justification.RECEIPT
-        if is_purchase:
-            # Revalidar os preços após bloquear o produto: outra sessão pode
-            # ter alterado o custo ou o preço entre o validate() e o create().
-            current_cost = validated_data.get('unit_cost', product.purchase_price)
-            current_sale_price = validated_data.get('new_sale_price', product.sale_price)
-            if current_sale_price <= current_cost:
-                raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve superar o custo da entrada.'})
-            validated_data['unit_cost'] = current_cost
-        if is_purchase and validated_data.get('update_reference_cost'):
-            seal_legacy_stock(product)
-        allocations = consume_lots(product, -delta, sale_only=False) if delta < 0 else []
+    @staticmethod
+    def _check_purchase_prices(product, data, is_purchase):
+        if not is_purchase:
+            return
+        # Revalidar preços dentro da transação, após bloquear o produto.
+        cost = data.get('unit_cost', product.purchase_price)
+        sale_price = data.get('new_sale_price', product.sale_price)
+        if sale_price <= cost:
+            raise serializers.ValidationError({'new_sale_price': 'Preço de venda deve superar o custo da entrada.'})
+        data['unit_cost'] = cost
+
+    @staticmethod
+    def _apply_stock_update(product, delta, data, is_purchase):
         updates = {'stock': F('stock') + delta}
-        if is_purchase and validated_data.get('update_reference_cost'):
-            updates['purchase_price'] = validated_data['unit_cost']
-        if is_purchase and 'new_sale_price' in validated_data:
-            updates['sale_price'] = validated_data['new_sale_price']
+        if is_purchase and data.get('update_reference_cost'):
+            updates['purchase_price'] = data['unit_cost']
+        if is_purchase and 'new_sale_price' in data:
+            updates['sale_price'] = data['new_sale_price']
         updated = Product.objects.filter(pk=product.pk, stock=product.stock).update(**updates)
         if not updated:
-            raise serializers.ValidationError({"delta": "Estoque alterado por outra operação. Tente novamente."})
+            raise serializers.ValidationError({'delta': 'Estoque alterado por outra operação. Tente novamente.'})
+
+    @staticmethod
+    def _save_adjustment(product, delta, after, data, is_purchase, allocations):
         movement = StockMovement.objects.create(
             product=product, delta=delta, stock_before=product.stock,
             stock_after=after, reason=StockMovement.Reason.ADJUSTMENT,
-            note=validated_data["note"], justification=validated_data.get("justification", ""),
-            unit_cost=validated_data.get('unit_cost') if is_purchase else None,
+            note=data['note'], justification=data.get('justification', ''),
+            unit_cost=data.get('unit_cost') if is_purchase else None,
         )
-
         for lot, qty in allocations:
             StockLotAllocation.objects.create(movement=movement, lot=lot, quantity=qty)
         if delta > 0:
-            # Entradas de qualquer produto criam seu próprio lote de custo.
-            # Devolução não altera o custo de referência no cadastro.
+            # Cada entrada registra o custo do lote; devolução não muda referência.
             StockLot.objects.create(
-                product=product, expiration_date=validated_data.get('expiration_date'),
+                product=product, expiration_date=data.get('expiration_date'),
                 received_quantity=delta, quantity=delta, receipt_movement=movement,
-                unit_cost=validated_data.get('unit_cost', product.purchase_price),
+                unit_cost=data.get('unit_cost', product.purchase_price),
             )
         return movement
+
+    @transaction.atomic
+    def create(self, validated_data):
+        product = Product.objects.select_for_update().get(pk=validated_data['product'].pk)
+        delta = validated_data['delta']
+        after = product.stock + delta
+        if not 0 <= after <= 2147483647:
+            raise serializers.ValidationError({'delta': 'Estoque resultante inválido.'})
+        is_purchase = (delta > 0 and validated_data.get('justification') ==
+                       StockMovement.Justification.RECEIPT)
+        self._check_purchase_prices(product, validated_data, is_purchase)
+        if is_purchase and validated_data.get('update_reference_cost'):
+            seal_legacy_stock(product)
+        allocations = consume_lots(product, -delta, sale_only=False) if delta < 0 else []
+        self._apply_stock_update(product, delta, validated_data, is_purchase)
+        return self._save_adjustment(product, delta, after, validated_data, is_purchase, allocations)

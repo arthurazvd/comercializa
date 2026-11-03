@@ -35,10 +35,14 @@ jobs:
       - name: Gerar e testar mutantes
         env:
           DEBUG: 'True'
-        run: mutmut run
+        run: |
+          set -o pipefail
+          mutmut run 2>&1 | tee mutation-run.log
       - name: Resumo dos mutantes
         if: always()
-        run: mutmut results || true
+        run: |
+          mutmut results 2>&1 | tee mutation-results.txt || true
+          mutmut junitxml > mutation-results.xml || true
       - name: Guardar artefatos de mutação (quando existirem)
         if: always()
         uses: actions/upload-artifact@v4
@@ -46,6 +50,8 @@ jobs:
           name: evidencia-mutacao
           path: |
             backend/.mutmut-cache
-            backend/mutants/
+            backend/mutation-run.log
+            backend/mutation-results.txt
+            backend/mutation-results.xml
           if-no-files-found: ignore
           retention-days: 30

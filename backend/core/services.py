@@ -23,6 +23,69 @@ def calculate_restock_quantity(stock, minimum_stock, velocity):
     )
 
 
+PRIORITY_MEDIUM = 'média'
+
+
+def _restock_recommendation(product, snapshot, velocity):
+    available = snapshot['available_stock']
+    if available > product.minimum_stock:
+        return None
+    days_cover = available / velocity if velocity > 0 else None
+    priority = ('alta' if available == 0 or
+                (days_cover is not None and days_cover <= 3) else PRIORITY_MEDIUM)
+    return {
+        'type': 'reposição', 'priority': priority,
+        'product_id': product.id, 'product': product.name,
+        'message': f'Repor aproximadamente {calculate_restock_quantity(available, product.minimum_stock, velocity)} unidade(s).',
+        'reason': 'Estoque atual está no nível mínimo ou abaixo dele.',
+    }
+
+
+def _expiration_recommendations(product, snapshot, today, expiration_limit):
+    recommendations = []
+    if snapshot['expired_units'] > 0:
+        recommendations.append({
+            'type': 'vencido', 'priority': 'alta',
+            'product_id': product.id, 'product': product.name,
+            'message': 'Separar unidades vencidas; vender apenas o saldo válido.',
+            'reason': 'Validade já ultrapassada.',
+        })
+    if not snapshot['expiring_units']:
+        return recommendations
+    valid_dates = [lot.expiration_date for lot in product.lots.all()
+                   if lot.quantity and today <= lot.expiration_date <= expiration_limit]
+    legacy_quantity = product.stock - sum(lot.quantity for lot in product.lots.all())
+    if (legacy_quantity > 0 and product.expiration_date
+            and today <= product.expiration_date <= expiration_limit):
+        valid_dates.append(product.expiration_date)
+    days_to_expire = (min(valid_dates) - today).days if valid_dates else 16
+    if 0 <= days_to_expire <= 15 and product.stock > 0:
+        priority = 'alta' if days_to_expire <= 5 else PRIORITY_MEDIUM
+        recommendations.append({
+            'type': 'validade', 'priority': priority,
+            'product_id': product.id, 'product': product.name,
+            'message': 'Avaliar promoção ou desconto para acelerar a saída.',
+            'reason': f'Produto vence em {days_to_expire} dia(s).',
+        })
+    return recommendations
+
+
+def _product_recommendations(product, snapshot, velocity, sold_ids, today, limit):
+    recommendations = []
+    restock = _restock_recommendation(product, snapshot, velocity)
+    if restock is not None:
+        recommendations.append(restock)
+    recommendations.extend(_expiration_recommendations(product, snapshot, today, limit))
+    if product.id not in sold_ids and product.stock > 0:
+        recommendations.append({
+            'type': 'baixa movimentação', 'priority': 'baixa',
+            'product_id': product.id, 'product': product.name,
+            'message': 'Reavaliar nova compra e considerar ação promocional.',
+            'reason': 'Nenhuma venda registrada nos últimos 30 dias.',
+        })
+    return recommendations
+
+
 def dashboard_data():
     today = timezone.localdate()
     last_30_days = timezone.now() - timedelta(days=30)
@@ -124,121 +187,16 @@ def dashboard_data():
     ]
 
     recommendations = []
-
     for product in active_products:
-        velocity = float(
-            velocity_rows.get(product.id, 0)
-        )
-
-        days_cover = (
-            snapshots[product.pk]["available_stock"] / velocity
-            if velocity > 0
-            else None
-        )
-
-        if snapshots[product.pk]["available_stock"] <= product.minimum_stock:
-            suggested_qty = calculate_restock_quantity(
-                snapshots[product.pk]["available_stock"],
-                product.minimum_stock,
-                velocity,
-            )
-
-            priority = (
-                "alta"
-                if snapshots[product.pk]["available_stock"] == 0
-                or (
-                    days_cover is not None
-                    and days_cover <= 3
-                )
-                else "média"
-            )
-
-            recommendations.append(
-                {
-                    "type": "reposição",
-                    "priority": priority,
-                    "product_id": product.id,
-                    "product": product.name,
-                    "message": (
-                        f"Repor aproximadamente "
-                        f"{suggested_qty} unidade(s)."
-                    ),
-                    "reason": (
-                        "Estoque atual está no nível "
-                        "mínimo ou abaixo dele."
-                    ),
-                }
-            )
-
-        product_snapshot = snapshots[product.pk]
-        if product_snapshot["expired_units"] > 0:
-            recommendations.append({
-                "type": "vencido", "priority": "alta",
-                "product_id": product.id, "product": product.name,
-                "message": "Separar unidades vencidas; vender apenas o saldo válido.",
-                "reason": "Validade já ultrapassada.",
-            })
-
-        if product_snapshot["expiring_units"]:
-            valid_dates = [l.expiration_date for l in product.lots.all()
-                           if l.quantity and today <= l.expiration_date <= expiration_limit]
-            legacy_qty = product.stock - sum(l.quantity for l in product.lots.all())
-            if legacy_qty > 0 and product.expiration_date and today <= product.expiration_date <= expiration_limit:
-                valid_dates.append(product.expiration_date)
-            days_to_expire = (min(valid_dates) - today).days if valid_dates else 16
-
-            if (
-                0 <= days_to_expire <= 15
-                and product.stock > 0
-            ):
-                priority = (
-                    "alta"
-                    if days_to_expire <= 5
-                    else "média"
-                )
-
-                recommendations.append(
-                    {
-                        "type": "validade",
-                        "priority": priority,
-                        "product_id": product.id,
-                        "product": product.name,
-                        "message": (
-                            "Avaliar promoção ou desconto "
-                            "para acelerar a saída."
-                        ),
-                        "reason": (
-                            f"Produto vence em "
-                            f"{days_to_expire} dia(s)."
-                        ),
-                    }
-                )
-
-        if (
-            product.id not in sold_ids
-            and product.stock > 0
-        ):
-            recommendations.append(
-                {
-                    "type": "baixa movimentação",
-                    "priority": "baixa",
-                    "product_id": product.id,
-                    "product": product.name,
-                    "message": (
-                        "Reavaliar nova compra e considerar "
-                        "ação promocional."
-                    ),
-                    "reason": (
-                        "Nenhuma venda registrada nos "
-                        "últimos 30 dias."
-                    ),
-                }
-            )
+        recommendations.extend(_product_recommendations(
+            product, snapshots[product.pk], float(velocity_rows.get(product.id, 0)),
+            sold_ids, today, expiration_limit,
+        ))
 
     sales_count = sales_30.count()
     priority_order = {
         "alta": 0,
-        "média": 1,
+        PRIORITY_MEDIUM: 1,
         "baixa": 2,
     }
 

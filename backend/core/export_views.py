@@ -12,6 +12,9 @@ from .reports import filters_from_query, finance_report
 from .xlsx_export import make_xlsx
 
 
+GROSS_PROFIT_LABEL = 'Lucro bruto'
+
+
 def stock_status(p, today, snapshot=None):
     snapshot = snapshot if snapshot is not None else stock_snapshot(p, today)
     if not p.active:
@@ -103,7 +106,7 @@ class FinanceExportView(APIView):
                 ('Descontos', summary['discounts']),
                 ('Receita após descontos', summary['revenue']),
                 ('Custo dos produtos vendidos (CMV)', summary['cogs']),
-                ('Lucro bruto', summary['gross_profit']),
+                (GROSS_PROFIT_LABEL, summary['gross_profit']),
                 ('Margem bruta (%)', summary['gross_margin_percentage']),
                 ('Despesas operacionais lançadas', summary['expense_total'] if summary['company_scope'] else 'Não alocadas com filtro'),
                 ('Resultado operacional estimado', summary['operating_result'] if summary['company_scope'] else 'Não calculado para filtro por produto/categoria'),
@@ -119,13 +122,13 @@ class FinanceExportView(APIView):
                 ('AVISO', 'Compras para estoque e ativos não são subtraídos novamente do lucro.'),
                 ('AVISO', 'Os valores não representam fluxo de caixa nem lucro líquido contábil.'),
             ], {}),
-            ('Produtos', ['Produto', 'Categoria', 'Unidades', 'Bruto', 'Descontos', 'Receita', 'CMV', 'Lucro bruto'], [
+            ('Produtos', ['Produto', 'Categoria', 'Unidades', 'Bruto', 'Descontos', 'Receita', 'CMV', GROSS_PROFIT_LABEL], [
                 (p['name'], p['category'], p['quantity'], p['gross'], p['discounts'], p['revenue'], p['cogs'], p['gross_profit'])
                 for p in report['products']], {3: 'currency', 4: 'currency', 5: 'currency', 6: 'currency', 7: 'currency'}),
-            ('Categorias', ['Categoria', 'Unidades', 'Receita', 'CMV', 'Lucro bruto'], [
+            ('Categorias', ['Categoria', 'Unidades', 'Receita', 'CMV', GROSS_PROFIT_LABEL], [
                 (c['name'], c['quantity'], c['revenue'], c['cogs'], c['gross_profit'])
                 for c in report['categories']], {2: 'currency', 3: 'currency', 4: 'currency'}),
-            ('Evolução diária', ['Data', 'Unidades', 'Receita', 'CMV', 'Lucro bruto'], [
+            ('Evolução diária', ['Data', 'Unidades', 'Receita', 'CMV', GROSS_PROFIT_LABEL], [
                 (d['date'], d['quantity'], d['revenue'], d['cogs'], d['gross_profit'])
                 for d in report['daily']], {2: 'currency', 3: 'currency', 4: 'currency'}),
             ('Compras de estoque', ['Data', 'Produto', 'SKU', 'Unidades', 'Custo unitário', 'Valor total', 'Custo estimado'], [

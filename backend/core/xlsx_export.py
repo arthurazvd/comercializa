@@ -22,6 +22,27 @@ def xml_text(value):
     return escape(str(value), {'"': '&quot;', "'": '&apos;'})
 
 
+def _append_excel_cell(out, coordinate, value, shade, is_currency):
+    if value is None:
+        return
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+        style = 5 if is_currency else shade
+        out.append(f'<c r="{coordinate}" s="{style}"><v>{value}</v></c>')
+        return
+    if isinstance(value, (date, datetime)):
+        value = value.isoformat()
+    out.append(f'<c r="{coordinate}" t="inlineStr" s="{shade}"><is><t>{xml_text(value)}</t></is></c>')
+
+
+def _append_excel_row(out, row, number, types):
+    out.append(f'<row r="{number}">')
+    shade = 3 if number % 2 else 4
+    for column, value in enumerate(row, 1):
+        _append_excel_cell(out, f'{col_label(column)}{number}', value,
+                           shade, types.get(column - 1) == 'currency')
+    out.append('</row>')
+
+
 def worksheet(title, headers, rows, types=None):
     """Planilha com cabeçalho colorido, colunas dimensionadas, filtros e formato monetário."""
     types = types or {}
@@ -42,20 +63,7 @@ def worksheet(title, headers, rows, types=None):
         out.append(f'<c r="{col_label(i)}2" s="2" t="inlineStr"><is><t>{xml_text(header)}</t></is></c>')
     out.append('</row>')
     for r, row in enumerate(rows, 3):
-        out.append(f'<row r="{r}">')
-        for c, value in enumerate(row, 1):
-            if value is None:
-                continue
-            coordinate = f'{col_label(c)}{r}'
-            shade = 3 if r % 2 else 4
-            if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
-                style = 5 if types.get(c - 1) == 'currency' else shade
-                out.append(f'<c r="{coordinate}" s="{style}"><v>{value}</v></c>')
-            else:
-                if isinstance(value, (date, datetime)):
-                    value = value.isoformat()
-                out.append(f'<c r="{coordinate}" t="inlineStr" s="{shade}"><is><t>{xml_text(value)}</t></is></c>')
-        out.append('</row>')
+        _append_excel_row(out, row, r, types)
     last = max(2, len(rows) + 2)
     out.append(f'</sheetData><autoFilter ref="A2:{width_end}{last}"/>')
     out.append(f'<mergeCells count="1"><mergeCell ref="A1:{width_end}1"/></mergeCells>')
