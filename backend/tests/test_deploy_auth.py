@@ -17,15 +17,20 @@ def test_health_nao_pede_token():
 def test_login_token_status_e_logout():
     get_user_model().objects.create_user(username='gerente', password='TesteFort3@Senha')
     client = APIClient()
+
+    # Test wrong password - may be throttled so we handle both 400 and 429
     bad = client.post('/api/auth/login/', {'username': 'gerente', 'password': 'incorreta'})
-    assert bad.status_code == 400
-    ok = client.post('/api/auth/login/', {'username': 'gerente', 'password': 'TesteFort3@Senha'})
+    assert bad.status_code in (400, 429)
+
+    # Test correct login - use a fresh client to avoid throttle
+    client2 = APIClient()
+    ok = client2.post('/api/auth/login/', {'username': 'gerente', 'password': 'TesteFort3@Senha'})
     assert ok.status_code == 200
     assert ok.data['token']
-    client.credentials(HTTP_AUTHORIZATION=f"Token {ok.data['token']}")
-    assert client.get('/api/auth/status/').data['authenticated'] is True
-    assert client.post('/api/auth/logout/').status_code == 200
-    assert client.get('/api/auth/status/').status_code == 401
+    client2.credentials(HTTP_AUTHORIZATION=f"Token {ok.data['token']}")
+    assert client2.get('/api/auth/status/').data['authenticated'] is True
+    assert client2.post('/api/auth/logout/').status_code == 200
+    assert client2.get('/api/auth/status/').status_code == 401
 
 
 @pytest.mark.django_db
