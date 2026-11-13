@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-const ROUTES = ['/', '/produtos', '/estoque', '/vendas', '/financeiro', '/sad'];
+const ROUTES = ['/', '/produtos', '/estoque', '/vendas', '/financeiro', '/visao-geral'];
 
 test.describe('P3 - Usabilidade e Acessibilidade (WCAG 2.1 AA + Heurísticas)', () => {
   for (const route of ROUTES) {

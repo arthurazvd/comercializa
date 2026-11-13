@@ -25,11 +25,12 @@ export default defineConfig({
     {
       name: 'Mobile Safari (Usabilidade)',
       use: { ...devices['iPhone 13'] },
+      testMatch: /usability-a11y\.spec\.js/,
     },
   ],
   webServer: [
     {
-      command: 'cd ../backend && python manage.py migrate && python manage.py runserver 127.0.0.1:8000',
+      command: 'cd ../backend && if [ -f .venv/bin/python ]; then .venv/bin/python manage.py migrate && .venv/bin/python manage.py runserver 127.0.0.1:8000; elif command -v python3 >/dev/null 2>&1; then python3 manage.py migrate && python3 manage.py runserver 127.0.0.1:8000; else python manage.py migrate && python manage.py runserver 127.0.0.1:8000; fi',
       url: 'http://127.0.0.1:8000/api/health/',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,

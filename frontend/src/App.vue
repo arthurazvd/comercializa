@@ -795,7 +795,7 @@ async function registerSale() {
   const submittedForm = JSON.stringify(saleForm.value)
   const payload = { discount: Number(saleForm.value.discount) || 0, items: saleForm.value.items.map(i => ({ product: Number(i.product), quantity: Number(i.quantity) })) }
   const onSaved = response => {
-    invalidateResource('sales')
+    invalidateResource('sales', 'products', 'stockOverview')
     sales.value = upsertById(sales.value, response.data)
     if (JSON.stringify(saleForm.value) === submittedForm) {
       saleForm.value = { items: [], discount: 0 }
@@ -820,7 +820,7 @@ async function adjustStock() {
       ...(receiptUpdateSalePrice.value ? { new_sale_price: Number(receiptNewSalePrice.value) } : {}) } : {}),
   }
   const onSaved = response => {
-    invalidateResource('movements')
+    invalidateResource('movements', 'products', 'stockOverview')
     movements.value = upsertById(movements.value, response.data)
     if (JSON.stringify([stockProduct.value, stockDelta.value, stockReason.value, stockCustomNote.value, stockExpiry.value, receiptUnitCost.value, receiptUpdateReference.value, receiptNewSalePrice.value, receiptUpdateSalePrice.value]) === originalForm) {
       stockDelta.value = 1; stockReason.value = 'recebimento'; stockCustomNote.value = ''; stockExpiry.value = ''; receiptUpdateSalePrice.value = false
@@ -980,12 +980,12 @@ function labelStatus(p) {
     </div>
     <div class="sidebar-label">MENU PRINCIPAL</div>
     <nav aria-label="Navegação principal">
-      <button :class="{ active: tab === 'dashboard' }" :aria-current="tab === 'dashboard' ? 'page' : undefined" @click="tab = 'dashboard'"><AppIcon name="dashboard" /> Visão geral</button>
-      <button :class="{ active: tab === 'sales' }" :aria-current="tab === 'sales' ? 'page' : undefined" @click="tab = 'sales'"><AppIcon name="cart" /> Vendas</button>
-      <button :class="{ active: tab === 'products' }" :aria-current="tab === 'products' ? 'page' : undefined" @click="tab = 'products'"><AppIcon name="products" /> Produtos</button>
-      <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
-      <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
-      <button type="button" @click="openModal('finance')"><AppIcon name="money" /> Financeiro</button>
+      <button :class="{ active: tab === 'dashboard' }" :aria-current="tab === 'dashboard' ? 'page' : undefined" aria-label="Visão geral" @click="tab = 'dashboard'"><AppIcon name="dashboard" /> Visão geral</button>
+      <button :class="{ active: tab === 'sales' }" :aria-current="tab === 'sales' ? 'page' : undefined" aria-label="Vendas" @click="tab = 'sales'"><AppIcon name="cart" /> Vendas</button>
+      <button :class="{ active: tab === 'products' }" :aria-current="tab === 'products' ? 'page' : undefined" aria-label="Produtos" @click="tab = 'products'"><AppIcon name="products" /> Produtos</button>
+      <button :class="{ active: tab === 'inventory' }" :aria-current="tab === 'inventory' ? 'page' : undefined" aria-label="Ver estoque" @click="tab = 'inventory'"><AppIcon name="package" /> Ver estoque</button>
+      <button :class="{ active: tab === 'movements' }" :aria-current="tab === 'movements' ? 'page' : undefined" aria-label="Movimentações" @click="tab = 'movements'"><AppIcon name="arrows" /> Movimentações</button>
+      <button type="button" aria-label="Financeiro" @click="openModal('finance')"><AppIcon name="money" /> Financeiro</button>
     </nav>
     <div class="sidebar-footer"><div class="sidebar-footer-head"><span class="status-dot"></span> {{ syncDelayed ? 'Mostrando últimos dados' : authRequired ? 'Ambiente conectado' : 'Ambiente de desenvolvimento' }}</div><small>Gestão de loja de variedades · Versão {{ APP_VERSION }}</small></div>
   </aside>
