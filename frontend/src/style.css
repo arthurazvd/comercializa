@@ -139,7 +139,7 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 .inventory-table strong { font-weight: 800; }.inventory-table .product-avatar { flex: 0 0 37px; }
 .item-cell { display: flex; align-items: center; gap: 9px; min-width: 190px; }.item-cell strong { display: block; }.item-cell small, .table-sub { display: block; margin-top: 5px; font-size: 10px; color: var(--muted); }
 .stock-progress { width: 105px; height: 7px; background: var(--stroke); border-radius: 12px; overflow: hidden; }.stock-progress > div { height: 100%; border-radius: 12px; background: #22ba98; }.stock-progress > .progress-warning { background: #eda841; }
-.small-action { background: transparent; border: 0; color: #099b7b; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.small-action { background: transparent; border: 0; color: #0a6b52; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .inline-actions button { display: inline-flex; gap: 4px; align-items: center; }
 .help-text { color: var(--muted); font-size: 12px; line-height: 1.65; }
 .sale-product-field { flex: 1; min-width: 0; display: grid; gap: 6px; }
@@ -993,12 +993,15 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
 .inline-actions button,
 .inline-actions button > svg,
 .catalog-actions button,
-.catalog-actions button > svg {
+.catalog-actions button > svg,
+.small-action,
+.small-action > svg {
   color: #0a6b52; /* 6.17:1 sobre #ffffff */
 }
 
 .inline-actions button:hover,
-.catalog-actions button:hover {
+.catalog-actions button:hover,
+.small-action:hover {
   color: #075c45;
 }
 
@@ -1053,7 +1056,8 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
 
 /* Ações inline do catálogo no escuro */
 [data-theme="dark"] .inline-actions button,
-[data-theme="dark"] .catalog-actions button {
+[data-theme="dark"] .catalog-actions button,
+[data-theme="dark"] .small-action {
   color: #5fe0bb; /* >= 6:1 sobre #182838 */
 }
 

@@ -54,8 +54,9 @@ test.describe('P3 - Testes de Sistema (Fluxos Críticos End-to-End)', () => {
     const option = produtoSelect.locator('option', { hasText: prodName });
     await expect(option).toHaveCount(1, { timeout: 15000 });
 
-    // Regex tolera variações de espaçamento ("0 un." / "0un." / "· 0 un.").
-    await produtoSelect.selectOption({ label: new RegExp(`^${prodName} ·? 0 un\\.?$`) });
+    const prodId = await option.getAttribute('value');
+    expect(prodId).toBeTruthy();
+    await produtoSelect.selectOption(prodId);
 
     await page.getByRole('spinbutton', { name: 'ajuste de estoque' }).fill('10');
     await page.getByRole('spinbutton', { name: 'custo unitário do novo lote' }).fill('10');
