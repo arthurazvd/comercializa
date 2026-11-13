@@ -24,10 +24,10 @@ test.describe('P3 - Testes de Sistema (Fluxos Críticos End-to-End)', () => {
 
     await page.getByLabel('Nome do produto').fill(prodName);
     await page.getByLabel('SKU').fill(prodSku);
-    await page.getByLabel('preço de compra').fill('10');
-    await page.getByLabel('preço de venda').fill('25');
-    await page.getByLabel('saldo de estoque').fill('0');
-    await page.getByLabel('estoque mínimo').fill('2');
+    await page.getByRole('spinbutton', { name: 'preço de compra' }).fill('10');
+    await page.getByRole('spinbutton', { name: 'preço de venda' }).fill('25');
+    await page.getByRole('spinbutton', { name: 'saldo de estoque' }).fill('0');
+    await page.getByRole('spinbutton', { name: 'estoque mínimo' }).fill('2');
 
     await page.getByRole('button', { name: /cadastrar produto/i }).click();
     await expect(page.getByText(/produto cadastrado com sucesso/i)).toBeVisible();
@@ -37,8 +37,8 @@ test.describe('P3 - Testes de Sistema (Fluxos Críticos End-to-End)', () => {
     await nav.getByRole('button', { name: /movimentações/i }).click();
 
     await page.getByLabel('Produto', { exact: true }).selectOption({ label: `${prodName} · 0 un.` });
-    await page.getByLabel('ajuste de estoque').fill('10');
-    await page.getByLabel('custo unitário do novo lote').fill('10');
+    await page.getByRole('spinbutton', { name: 'ajuste de estoque' }).fill('10');
+    await page.getByRole('spinbutton', { name: 'custo unitário do novo lote' }).fill('10');
 
     await page.getByRole('button', { name: /registrar movimentação/i }).click();
     await expect(page.getByText(/movimentação registrada com sucesso/i)).toBeVisible();
@@ -50,7 +50,7 @@ test.describe('P3 - Testes de Sistema (Fluxos Críticos End-to-End)', () => {
     await searchInput.fill(prodName);
     await page.getByRole('option', { name: new RegExp(prodName) }).click();
 
-    await page.getByLabel('quantidade do produto').fill('2');
+    await page.getByRole('spinbutton', { name: 'quantidade do produto' }).fill('2');
     await page.getByRole('button', { name: /incluir/i }).click();
 
     await page.getByRole('button', { name: /finalizar venda/i }).click();

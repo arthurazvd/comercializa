@@ -899,50 +899,70 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   label.search-input { height: 45px; }
 }
 
-/* Correção de contraste WCAG 2.1 AA (>= 4.5:1) para tema claro */
+/* Correção de contraste WCAG 2.1 AA (>= 4.5:1) para temas claro e escuro */
 :root {
   --accent: #0b7a5c;
   --accent-deep: #075c45;
   --muted: #526071;
 }
 
-.crumb,
-.topbar-right,
-.topbar-date,
-.page-header p,
-p,
-.metric-top small,
-.metric-detail,
-.text-muted,
-.bar-column strong,
-.bar-column small,
-.quantity,
-.recommendation small,
-.detail-row small,
-.product-info small,
-.product-pricing small,
-.empty,
-.count-pill,
-.header-count,
-.sale-total > div,
-.chart-controls label,
-.chart-update-line,
-.insight-strip span,
-.insight-strip small,
-.finance-quick-strip small,
-.finance-quick-strip span {
+.btn.primary {
+  background: #0b7a5c;
+  color: #ffffff;
+}
+
+.btn.primary:hover {
+  background: #075c45;
+}
+
+:root:not([data-theme="dark"]) .crumb,
+:root:not([data-theme="dark"]) .topbar-right,
+:root:not([data-theme="dark"]) .topbar-date,
+:root:not([data-theme="dark"]) .page-header p,
+:root:not([data-theme="dark"]) p,
+:root:not([data-theme="dark"]) .metric-top small,
+:root:not([data-theme="dark"]) .metric-detail,
+:root:not([data-theme="dark"]) .text-muted,
+:root:not([data-theme="dark"]) .bar-column strong,
+:root:not([data-theme="dark"]) .bar-column small,
+:root:not([data-theme="dark"]) .quantity,
+:root:not([data-theme="dark"]) .recommendation small,
+:root:not([data-theme="dark"]) .detail-row small,
+:root:not([data-theme="dark"]) .product-info small,
+:root:not([data-theme="dark"]) .product-pricing small,
+:root:not([data-theme="dark"]) .empty,
+:root:not([data-theme="dark"]) .count-pill,
+:root:not([data-theme="dark"]) .header-count,
+:root:not([data-theme="dark"]) .sale-total > div,
+:root:not([data-theme="dark"]) .chart-controls label,
+:root:not([data-theme="dark"]) .chart-update-line,
+:root:not([data-theme="dark"]) .insight-strip span,
+:root:not([data-theme="dark"]) .insight-strip small,
+:root:not([data-theme="dark"]) .finance-quick-strip small,
+:root:not([data-theme="dark"]) .finance-quick-strip span {
   color: #526071;
 }
 
-.eyebrow,
-.chart-type-label,
-.sale-draft .sale-choice-price,
-.sale-draft .sale-choice-price strong,
-.stock-view-hint,
-.photo-zoom-hint {
+:root:not([data-theme="dark"]) .eyebrow,
+:root:not([data-theme="dark"]) .chart-type-label,
+:root:not([data-theme="dark"]) .sale-draft .sale-choice-price,
+:root:not([data-theme="dark"]) .sale-draft .sale-choice-price strong,
+:root:not([data-theme="dark"]) .stock-view-hint,
+:root:not([data-theme="dark"]) .photo-zoom-hint {
   color: #0b7a5c;
 }
 
-.muted-tag {
+:root:not([data-theme="dark"]) .muted-tag {
   color: #4a5568;
+}
+
+:root[data-theme="dark"] {
+  --accent: #31cda6;
+  --accent-deep: #24a887;
+  --muted: #a3b4c4;
+}
+
+:root[data-theme="dark"] .btn.primary {
+  background: #0b7a5c;
+  color: #ffffff;
 }
