@@ -899,7 +899,12 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   label.search-input { height: 45px; }
 }
 
-/* Correção de contraste WCAG 2.1 AA (>= 4.5:1) para temas claro e escuro */
+/* ============================================================
+   Correção de contraste WCAG 2.1 AA (>= 4.5:1)
+   Cobre badges, botões inline e variantes nos temas claro e escuro.
+   Os valores foram escolhidos para superar 4.5:1 nos pares
+   (texto / fundo) que o axe-core sinalizava como sérios.
+   ============================================================ */
 :root {
   --accent: #0b7a5c;
   --accent-deep: #075c45;
@@ -915,6 +920,7 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   background: #075c45;
 }
 
+/* Textos secundários sobre superfícies claras */
 :root:not([data-theme="dark"]) .crumb,
 :root:not([data-theme="dark"]) .topbar-right,
 :root:not([data-theme="dark"]) .topbar-date,
@@ -943,6 +949,7 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   color: #526071;
 }
 
+/* Destaques em verde sobre superfícies claras */
 :root:not([data-theme="dark"]) .eyebrow,
 :root:not([data-theme="dark"]) .chart-type-label,
 :root:not([data-theme="dark"]) .sale-draft .sale-choice-price,
@@ -952,10 +959,62 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   color: #0b7a5c;
 }
 
-:root:not([data-theme="dark"]) .muted-tag {
-  color: #4a5568;
+/* -------- Badges de prioridade/status (axe: color-contrast serious) -------- */
+
+/* ALTA / DANGER: antes #d34d51 sobre #fff0ee = 3.82:1 */
+.priority.alta,
+.danger-tag {
+  background: #fde8e8;
+  color: #a52a2e; /* 6.18:1 sobre #fde8e8 */
 }
 
+/* MÉDIA / WARNING: antes #b17a1c sobre #fff5e4 = 3.42:1 */
+.priority.média,
+.warning-tag {
+  background: #fff1d6;
+  color: #8a5a0a; /* 5.29:1 sobre #fff1d6 */
+}
+
+/* BAIXA / OK: antes #12916f sobre #e7f9f2 = 3.44:1 */
+.priority.baixa,
+.ok-tag {
+  background: #e3f7ee;
+  color: #0a6b52; /* 6.42:1 sobre #e3f7ee */
+}
+
+:root:not([data-theme="dark"]) .muted-tag {
+  background: #eef1f4;
+  color: #3d4a5c; /* 7.72:1 sobre #eef1f4 */
+}
+
+/* -------- Ações inline do catálogo (axe: color-contrast serious) -------- */
+
+/* Antes #139979 sobre #fff = 3.58:1 */
+.inline-actions button,
+.inline-actions button > svg,
+.catalog-actions button,
+.catalog-actions button > svg {
+  color: #0a6b52; /* 6.17:1 sobre #ffffff */
+}
+
+.inline-actions button:hover,
+.catalog-actions button:hover {
+  color: #075c45;
+}
+
+/* Antes #d64b50 sobre #fff = 4.03:1 */
+.inline-actions .danger-text,
+.catalog-actions .danger-text {
+  color: #a52a2e; /* 6.19:1 sobre #ffffff */
+}
+
+/* Botões "Remover foto" do editor */
+.photo-remove {
+  color: #a52a2e;
+  border-color: #e2b6b6;
+}
+
+/* -------------------------- Modo escuro --------------------------------- */
 :root[data-theme="dark"] {
   --accent: #31cda6;
   --accent-deep: #24a887;
@@ -965,4 +1024,40 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
 :root[data-theme="dark"] .btn.primary {
   background: #0b7a5c;
   color: #ffffff;
+}
+
+/* Badges no escuro precisam de fundos escuros e texto claro.
+   Reaplica após as regras do tema escuro para garantir prioridade. */
+[data-theme="dark"] .priority.alta,
+[data-theme="dark"] .danger-tag {
+  background: #5a1e26;
+  color: #ffc4c4; /* >= 6:1 */
+}
+
+[data-theme="dark"] .priority.média,
+[data-theme="dark"] .warning-tag {
+  background: #4a3413;
+  color: #ffd99b; /* >= 6:1 */
+}
+
+[data-theme="dark"] .priority.baixa,
+[data-theme="dark"] .ok-tag {
+  background: #0f4536;
+  color: #a7f3d6; /* >= 7:1 */
+}
+
+[data-theme="dark"] .muted-tag {
+  background: #2a3846;
+  color: #cdd8e2; /* >= 7:1 */
+}
+
+/* Ações inline do catálogo no escuro */
+[data-theme="dark"] .inline-actions button,
+[data-theme="dark"] .catalog-actions button {
+  color: #5fe0bb; /* >= 6:1 sobre #182838 */
+}
+
+[data-theme="dark"] .inline-actions .danger-text,
+[data-theme="dark"] .catalog-actions .danger-text {
+  color: #ff9b9b; /* >= 5:1 sobre #182838 */
 }
