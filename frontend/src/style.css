@@ -898,3 +898,51 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   .stock-detail-photo { width: 94px; }
   label.search-input { height: 45px; }
 }
+
+/* Correção de contraste WCAG 2.1 AA (>= 4.5:1) para tema claro */
+:root {
+  --accent: #0b7a5c;
+  --accent-deep: #075c45;
+  --muted: #526071;
+}
+
+.crumb,
+.topbar-right,
+.topbar-date,
+.page-header p,
+p,
+.metric-top small,
+.metric-detail,
+.text-muted,
+.bar-column strong,
+.bar-column small,
+.quantity,
+.recommendation small,
+.detail-row small,
+.product-info small,
+.product-pricing small,
+.empty,
+.count-pill,
+.header-count,
+.sale-total > div,
+.chart-controls label,
+.chart-update-line,
+.insight-strip span,
+.insight-strip small,
+.finance-quick-strip small,
+.finance-quick-strip span {
+  color: #526071;
+}
+
+.eyebrow,
+.chart-type-label,
+.sale-draft .sale-choice-price,
+.sale-draft .sale-choice-price strong,
+.stock-view-hint,
+.photo-zoom-hint {
+  color: #0b7a5c;
+}
+
+.muted-tag {
+  color: #4a5568;
+}
