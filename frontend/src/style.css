@@ -59,7 +59,7 @@ p { margin: 0; color: #7c899a; font-size: 13px; line-height: 1.65; }
 .rank-row, .detail-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 0; border-bottom: 1px solid #f0f3f6; }
 .rank-row:last-child, .detail-row:last-child, .recommendation:last-child { border-bottom: 0; }
 .rank-row strong { flex: 1; font-size: 12px; }
-.rank-index { color: #10ae84; background: #eafaf5; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 900; }
+.rank-index { color: #0a6b52; background: #eafaf5; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 900; }
 .quantity { font-size: 11px; color: #8594a5; font-weight: 700; }
 .recommendation { display: flex; align-items: start; gap: 12px; padding: 14px 0; border-bottom: 1px solid #eef2f6; }
 .recommendation strong, .detail-row strong { font-size: 12px; }.recommendation p { color: #42526a; margin: 4px 0; }.recommendation small, .detail-row small { display: block; font-size: 11px; color: #98a5b4; margin-top: 5px; }
@@ -80,7 +80,7 @@ input:focus, select:focus { border-color: #18bc90; }
 .catalog-item:last-child { border-bottom: 0; }.product-avatar { flex: 0 0 37px; height: 37px; border-radius: 10px; display: grid; place-items: center; color: #159577; background: #e9f9f4; font-size: 17px; font-weight: 800; }
 .product-info { flex: 1; min-width: 0; }.product-info strong { display: block; font-size: 12px; overflow-wrap: anywhere; }.product-info small, .product-pricing small { display: block; color: #99a6b4; font-size: 10px; margin: 4px 0 8px; }.product-pricing { text-align: right; }.product-pricing strong { font-size: 12px; }.inline-actions { display: flex; justify-content: end; gap: 10px; flex-wrap: wrap; }.inline-actions button { background: none; border: 0; padding: 0; font-size: 11px; font-weight: 700; color: #139979; }.inline-actions .danger-text { color: #d64b50; }
 .cart-item { display: flex; align-items: end; gap: 11px; padding: 12px 0; border-bottom: 1px solid #eef2f6; }.cart-item-number { color: #a0aeb9; font-size: 12px; padding-bottom: 13px; font-weight: 800; }.cart-item label { flex: 1; min-width: 0; }.cart-item .qty-label { flex: 0 0 75px; }.remove-item { border: 0; background: #fff0ee; color: #ce5558; border-radius: 8px; height: 38px; width: 35px; font-size: 20px; }
-.sale-total { background: #f6f9fa; border-radius: 11px; padding: 19px; display: grid; gap: 15px; margin-top: 5px; }.sale-total > div { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #718096; }.sale-total strong { color: #1b2b3f; }.sale-total .grand-total { border-top: 1px solid #e4eaf0; padding-top: 17px; font-weight: 700; }.grand-total strong { font-size: 22px; color: #0f9b75; }.sale-total label { max-width: 170px; }.validation-hint { color: #b27b26; font-size: 11px; }.green-text, .positive { color: #10a57d; }.negative { color: #ce5a55; }.change-amount { font-weight: 800; font-size: 14px; }
+.sale-total { background: #f6f9fa; border-radius: 11px; padding: 19px; display: grid; gap: 15px; margin-top: 5px; }.sale-total > div { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #718096; }.sale-total strong { color: #1b2b3f; }.sale-total .grand-total { border-top: 1px solid #e4eaf0; padding-top: 17px; font-weight: 700; }.grand-total strong { font-size: 22px; color: #0f9b75; }.sale-total label { max-width: 170px; }.validation-hint { color: #b27b26; font-size: 11px; }.green-text, .positive { color: #097255; }.negative { color: #ce5a55; }.change-amount { font-weight: 800; font-size: 14px; }
 .notice { margin-top: 18px; border-radius: 10px; padding: 12px 15px; display: flex; justify-content: space-between; gap: 15px; font-size: 12px; }.notice.success { background: #e8f9f2; color: #067b57; border: 1px solid #b8e9d4; }.notice.error { background: #fff0ed; color: #aa353a; border: 1px solid #f4c3c0; }.notice button { background: transparent; border: 0; color: inherit; font-size: 20px; }.empty { color: #96a3b2; padding: 20px 0; font-size: 12px; }.loading { margin-top: 20px; }
 @media (max-width: 1200px) { .cards { grid-template-columns: repeat(2, minmax(0,1fr)); }.dashboard-top { grid-template-columns: 1fr; }.main-content { padding: 0 25px 36px; } }
 @media (max-width: 850px) { .layout { grid-template-columns: 1fr; }.sidebar { min-height: 0; padding: 16px; }.brand { padding: 0 0 16px; }.sidebar-label, .sidebar-footer { display: none; }nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }nav button { justify-content: center; padding: 9px; font-size: 11px; gap: 5px; }.grid-2, .grid-form, .sale-layout { grid-template-columns: minmax(0,1fr); }.topbar { height: 50px; } }
@@ -139,7 +139,7 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 .inventory-table strong { font-weight: 800; }.inventory-table .product-avatar { flex: 0 0 37px; }
 .item-cell { display: flex; align-items: center; gap: 9px; min-width: 190px; }.item-cell strong { display: block; }.item-cell small, .table-sub { display: block; margin-top: 5px; font-size: 10px; color: var(--muted); }
 .stock-progress { width: 105px; height: 7px; background: var(--stroke); border-radius: 12px; overflow: hidden; }.stock-progress > div { height: 100%; border-radius: 12px; background: #22ba98; }.stock-progress > .progress-warning { background: #eda841; }
-.small-action { background: transparent; border: 0; color: #099b7b; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.small-action { background: transparent; border: 0; color: #0a6b52; font-weight: 800; font-size: 11px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
 .inline-actions button { display: inline-flex; gap: 4px; align-items: center; }
 .help-text { color: var(--muted); font-size: 12px; line-height: 1.65; }
 .sale-product-field { flex: 1; min-width: 0; display: grid; gap: 6px; }
@@ -185,7 +185,7 @@ button.inventory-kpi:hover { border-color: #2fcba9; }
 [data-theme="dark"] .bar-track { background: #284457; }
 [data-theme="dark"] .product-avatar { background: #174b42; color: #60dab9; }
 [data-theme="dark"] .count-pill { background: #254053; color: #c2d7e6; }
-[data-theme="dark"] .tag.ok-tag, [data-theme="dark"] .priority.baixa { background: #154b3e; color: #76dfba; }
+[data-theme="dark"] .tag.ok-tag, [data-theme="dark"] .priority.baixa, [data-theme="dark"] .rank-index { background: #154b3e; color: #76dfba; }
 [data-theme="dark"] .tag.warning-tag, [data-theme="dark"] .priority.média { background: #534025; color: #ffd08a; }
 [data-theme="dark"] .tag.danger-tag, [data-theme="dark"] .priority.alta { background: #562c37; color: #ffacaa; }
 [data-theme="dark"] .tag.muted-tag { background: #384657; color: #b7c4d0; }
@@ -541,7 +541,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .sale-history-main > strong { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .sale-history-main .tag { font-size: 9px; padding: 3px 7px; }
 .sale-history-actions { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.sale-history-actions .reverse-sale-action { min-height: 30px; color: #bd6b33; }
+.sale-history-actions .reverse-sale-action { min-height: 30px; color: #9c4f1e; }
 .sale-history-actions .muted-price { color: var(--muted); text-decoration: line-through; }
 .sale-history-actions .refund-recorded { color: #0b9976; text-align: right; }
 .btn.danger { color: #fff; background: #bd474d; border: 1px solid #bd474d; }
@@ -897,4 +897,180 @@ textarea:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px colo
   .catalog-photo-button { grid-row: 1; }
   .stock-detail-photo { width: 94px; }
   label.search-input { height: 45px; }
+}
+
+/* ============================================================
+   Correção de contraste WCAG 2.1 AA (>= 4.5:1)
+   Cobre badges, botões inline e variantes nos temas claro e escuro.
+   Os valores foram escolhidos para superar 4.5:1 nos pares
+   (texto / fundo) que o axe-core sinalizava como sérios.
+   ============================================================ */
+:root {
+  --accent: #0b7a5c;
+  --accent-deep: #075c45;
+  --muted: #526071;
+}
+
+.btn.primary {
+  background: #0b7a5c;
+  color: #ffffff;
+}
+
+.btn.primary:hover {
+  background: #075c45;
+}
+
+/* Textos secundários sobre superfícies claras */
+:root:not([data-theme="dark"]) .crumb,
+:root:not([data-theme="dark"]) .topbar-right,
+:root:not([data-theme="dark"]) .topbar-date,
+:root:not([data-theme="dark"]) .page-header p,
+:root:not([data-theme="dark"]) p,
+:root:not([data-theme="dark"]) .metric-top small,
+:root:not([data-theme="dark"]) .metric-detail,
+:root:not([data-theme="dark"]) .text-muted,
+:root:not([data-theme="dark"]) .bar-column strong,
+:root:not([data-theme="dark"]) .bar-column small,
+:root:not([data-theme="dark"]) .quantity,
+:root:not([data-theme="dark"]) .recommendation small,
+:root:not([data-theme="dark"]) .detail-row small,
+:root:not([data-theme="dark"]) .product-info small,
+:root:not([data-theme="dark"]) .product-pricing small,
+:root:not([data-theme="dark"]) .empty,
+:root:not([data-theme="dark"]) .count-pill,
+:root:not([data-theme="dark"]) .header-count,
+:root:not([data-theme="dark"]) .sale-total > div,
+:root:not([data-theme="dark"]) .chart-controls label,
+:root:not([data-theme="dark"]) .chart-update-line,
+:root:not([data-theme="dark"]) .insight-strip span,
+:root:not([data-theme="dark"]) .insight-strip small,
+:root:not([data-theme="dark"]) .finance-quick-strip small,
+:root:not([data-theme="dark"]) .finance-quick-strip span {
+  color: #526071;
+}
+
+/* Destaques em verde sobre superfícies claras */
+:root:not([data-theme="dark"]) .eyebrow,
+:root:not([data-theme="dark"]) .chart-type-label,
+:root:not([data-theme="dark"]) .sale-draft .sale-choice-price,
+:root:not([data-theme="dark"]) .sale-draft .sale-choice-price strong,
+:root:not([data-theme="dark"]) .stock-view-hint,
+:root:not([data-theme="dark"]) .photo-zoom-hint {
+  color: #0b7a5c;
+}
+
+/* -------- Badges de prioridade/status (axe: color-contrast serious) -------- */
+
+/* ALTA / DANGER: antes #d34d51 sobre #fff0ee = 3.82:1 */
+.priority.alta,
+.danger-tag {
+  background: #fde8e8;
+  color: #a52a2e; /* 6.18:1 sobre #fde8e8 */
+}
+
+/* MÉDIA / WARNING: antes #b17a1c sobre #fff5e4 = 3.42:1 */
+.priority.média,
+.warning-tag {
+  background: #fff1d6;
+  color: #8a5a0a; /* 5.29:1 sobre #fff1d6 */
+}
+
+/* BAIXA / OK: antes #12916f sobre #e7f9f2 = 3.44:1 */
+.priority.baixa,
+.ok-tag {
+  background: #e3f7ee;
+  color: #0a6b52; /* 6.42:1 sobre #e3f7ee */
+}
+
+:root:not([data-theme="dark"]) .muted-tag {
+  background: #eef1f4;
+  color: #3d4a5c; /* 7.72:1 sobre #eef1f4 */
+}
+
+/* -------- Ações inline do catálogo (axe: color-contrast serious) -------- */
+
+/* Antes #139979 sobre #fff = 3.58:1 */
+.inline-actions button,
+.inline-actions button > svg,
+.catalog-actions button,
+.catalog-actions button > svg,
+.small-action,
+.small-action > svg {
+  color: #0a6b52; /* 6.17:1 sobre #ffffff */
+}
+
+.inline-actions button:hover,
+.catalog-actions button:hover,
+.small-action:hover {
+  color: #075c45;
+}
+
+/* Antes #d64b50 sobre #fff = 4.03:1 */
+.inline-actions .danger-text,
+.catalog-actions .danger-text {
+  color: #a52a2e; /* 6.19:1 sobre #ffffff */
+}
+
+/* Botões "Remover foto" do editor */
+.photo-remove {
+  color: #a52a2e;
+  border-color: #e2b6b6;
+}
+
+/* -------------------------- Modo escuro --------------------------------- */
+:root[data-theme="dark"] {
+  --accent: #31cda6;
+  --accent-deep: #24a887;
+  --muted: #a3b4c4;
+}
+
+:root[data-theme="dark"] .btn.primary {
+  background: #0b7a5c;
+  color: #ffffff;
+}
+
+/* Badges no escuro precisam de fundos escuros e texto claro.
+   Reaplica após as regras do tema escuro para garantir prioridade. */
+[data-theme="dark"] .priority.alta,
+[data-theme="dark"] .danger-tag {
+  background: #5a1e26;
+  color: #ffc4c4; /* >= 6:1 */
+}
+
+[data-theme="dark"] .priority.média,
+[data-theme="dark"] .warning-tag {
+  background: #4a3413;
+  color: #ffd99b; /* >= 6:1 */
+}
+
+[data-theme="dark"] .priority.baixa,
+[data-theme="dark"] .ok-tag {
+  background: #0f4536;
+  color: #a7f3d6; /* >= 7:1 */
+}
+
+[data-theme="dark"] .muted-tag {
+  background: #2a3846;
+  color: #cdd8e2; /* >= 7:1 */
+}
+
+/* Ações inline do catálogo no escuro */
+[data-theme="dark"] .inline-actions button,
+[data-theme="dark"] .catalog-actions button,
+[data-theme="dark"] .small-action {
+  color: #5fe0bb; /* >= 6:1 sobre #182838 */
+}
+
+[data-theme="dark"] .inline-actions .danger-text,
+[data-theme="dark"] .catalog-actions .danger-text {
+  color: #ff9b9b; /* >= 5:1 sobre #182838 */
+}
+
+[data-theme="dark"] .green-text,
+[data-theme="dark"] .positive {
+  color: #5fe0bb; /* >= 9:1 sobre #182838 */
+}
+
+[data-theme="dark"] .sale-history-actions .reverse-sale-action {
+  color: #ffaa71; /* >= 7.9:1 sobre #182838 */
 }

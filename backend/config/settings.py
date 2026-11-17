@@ -104,6 +104,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://localhost:4173',
+    'http://127.0.0.1:4173',
     *env_csv('CORS_ALLOWED_ORIGINS'),
 ]
 # Autoriza a chave usada em cadastros idempotentes pelo frontend Cloudflare.
