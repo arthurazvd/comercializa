@@ -90,3 +90,68 @@ Uma User Story é considerada concluída quando:
 4. a suíte de testes relevante estiver passando;
 5. a documentação afetada estiver atualizada;
 6. não houver regressão conhecida introduzida pela alteração.
+
+---
+
+## 6. Especificação detalhada — US09 (Iteração 2)
+
+### US09 — Alertas inteligentes de produtos próximos do vencimento e análise de risco financeiro
+
+**Como** gestor do comércio,  
+**quero** receber alertas categorizados de produtos próximos do vencimento com o cálculo do valor financeiro em risco,  
+**para** priorizar promoções, antecipar perdas e tomar decisões rápidas de gestão de estoque.
+
+### Critérios de aceitação
+
+1. O sistema deve analisar lotes cadastrados (`StockLot`) e saldos legados do produto (`Product`) com data de validade ativa.
+2. Cada alerta deve ser classificado em faixas de severidade:
+   - `Vencido` (< 0 dias): itens já expirados.
+   - `Crítico` (0 a 7 dias): risco iminente de descarte.
+   - `Alerta` (8 a 15 dias): janela prioritária para liquidação ou promoção.
+   - `Atenção` (16 a 30 dias): monitoramento para evitar perda futura.
+3. O sistema deve calcular o montante financeiro em risco (`capital_em_risco = quantidade × custo_unitario`) e a receita potencial associada.
+4. Deve existir um endpoint REST dedicado (`/api/alerts/expiration/`) permitindo filtrar por janela de dias (`window_days`) e severidade (`severity`).
+5. Produtos não perecíveis, sem validade cadastrada ou com saldo zerado não devem gerar alertas espúrios.
+6. A funcionalidade deve ter testes unitários para valores-limite de datas e testes de integração de API.
+
+### Cenários de aceitação — BDD / Gherkin
+
+#### Cenário 1 — Classificação de alerta crítico com risco financeiro calculado
+```gherkin
+Dado que existe um produto perecível com lote de 10 unidades com custo unitário de R$ 5,00
+E a data de validade desse lote é de 3 dias a partir de hoje
+Quando o gestor consultar os alertas de vencimento do sistema
+Então o lote deve ser retornado com severidade "critico"
+E o capital em risco calculado deve ser de R$ 50,00
+E deve ser sugerida a ação de "Liquidação urgente com desconto de até 50% ou degustação/queima imediata"
+```
+
+#### Cenário 2 — Produto com múltiplos lotes em severidades distintas
+```gherkin
+Dado que existe um produto perecível com dois lotes:
+  | Lote | Quantidade | Validade        | Custo Unitário |
+  | A    | 5          | Hoje + 5 dias   | R$ 10,00       |
+  | B    | 20         | Hoje + 25 dias  | R$ 10,00       |
+Quando o gestor consultar os alertas de vencimento para uma janela de 30 dias
+Então o Lote A deve ser classificado como severidade "critico"
+E o Lote B deve ser classificado como severidade "atencao"
+E o resumo financeiro deve totalizar R$ 250,00 de capital em risco acumulado
+```
+
+#### Cenário 3 — Identificação e segregação de lotes já vencidos
+```gherkin
+Dado que existe um produto perecível com lote com validade expirada há 2 dias
+Quando o gestor consultar os alertas de vencimento
+Então o lote deve ser classificado como severidade "vencido"
+E deve apresentar recomendação para segregar e descartar o item do estoque comercializável
+```
+
+#### Cenário 4 — Consulta de alertas via API com filtro de janela temporal
+```gherkin
+Dado que a API de alertas de vencimento está disponível
+Quando o cliente enviar uma requisição GET para "/api/alerts/expiration/?window_days=7"
+Então a resposta deve ter código HTTP 200
+E a lista deve conter apenas lotes cuja validade ocorra dentro dos próximos 7 dias ou que já estejam vencidos
+E não devem ser exibidos lotes com validade superior a 7 dias
+```
+

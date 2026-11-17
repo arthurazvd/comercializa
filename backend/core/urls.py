@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     CategoryViewSet, ProductViewSet, SaleListCreateView,
     StockMovementListCreateView, DashboardView, SaleCancelView, OperationStatusView,
+    ExpirationAlertsView,
 )
 
 from .financial_entries import FinancialEntriesView, FinancialEntryVoidView
@@ -24,6 +25,7 @@ urlpatterns = [
     path("operations/<str:key>/", OperationStatusView.as_view(), name="operation-status"),
     path("stock-movements/", StockMovementListCreateView.as_view(), name="stock-movements"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
+    path("alerts/expiration/", ExpirationAlertsView.as_view(), name="expiration-alerts"),
     path("stock-overview/", StockOverviewView.as_view(), name="stock-overview"),
     path("stock-export/", StockExportView.as_view(), name="stock-export"),
     path("reports/finance/", FinanceReportView.as_view(), name="finance-report"),
