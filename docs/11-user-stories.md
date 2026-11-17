@@ -90,3 +90,60 @@ Uma User Story é considerada concluída quando:
 4. a suíte de testes relevante estiver passando;
 5. a documentação afetada estiver atualizada;
 6. não houver regressão conhecida introduzida pela alteração.
+
+---
+
+## 6. Especificação detalhada — US15 (Iteração 1)
+
+### US15 — Ampliar testes de API e integração com Mock Objects e persistência
+
+**Como** desenvolvedor da equipe do Comercializa,  
+**quero** ampliar a suíte de testes automatizados de API e integração dos fluxos essenciais de produtos, categorias e vendas,  
+**para** garantir códigos HTTP adequados, validações consistentes, isolamento de dependências via Mock Objects e integridade da persistência.
+
+### Critérios de aceitação
+
+1. O endpoint de produtos (`/api/products/`) deve possuir testes de integração cobrindo criação, listagem, consulta por ID e validação de schema.
+2. A suíte deve isolar componentes de negócio e persistência utilizando Mock Objects (`unittest.mock.patch`, `MagicMock`) em testes de unidade de serializadores e viewsets.
+3. Cenários de erro e exceção (criação com payload inválido, tentativa de excluir produto vinculado a vendas) devem retornar HTTP 400 com payload explicativo.
+4. Testes de integração devem verificar a integridade transacional real no banco de dados e os códigos HTTP (200, 201, 400, 404).
+5. A suíte deve executar com sucesso sem regressões e atender aos critérios do Quality Gate do SonarQube.
+
+### Cenários de aceitação — BDD / Gherkin
+
+#### Cenário 1 — Criação de produto com payload válido via API
+```gherkin
+Dado que existe uma categoria válida cadastrada no sistema
+Quando o cliente enviar uma requisição POST para "/api/products/" com dados válidos de produto
+Então a API deve responder com código HTTP 201 Created
+E o produto retornado deve conter o ID gerado, SKU, nome, preços e saldo de estoque
+E o registro deve estar efetivamente persistido no banco de dados
+```
+
+#### Cenário 2 — Rejeição de produto com payload incompleto ou inválido
+```gherkin
+Dado que a API de produtos está disponível
+Quando o cliente enviar uma requisição POST para "/api/products/" sem o campo obrigatório "sale_price"
+Então a API deve retornar código HTTP 400 Bad Request
+E o corpo da resposta deve conter mensagem de validação sobre o campo faltante
+E nenhum produto deve ser persistido no banco de dados
+```
+
+#### Cenário 3 — Bloqueio de exclusão de produto com vendas vinculadas
+```gherkin
+Dado que existe um produto previamente cadastrado
+E que já foi registrada uma venda associada a este produto
+Quando o cliente enviar uma requisição DELETE para "/api/products/{id}/"
+Então a operação deve ser rejeitada com código HTTP 409 Conflict
+E a mensagem deve informar que o produto possui histórico de vendas ou estoque
+E o produto deve permanecer ativo no banco de dados
+```
+
+#### Cenário 4 — Isolamento de serviços externos via Mock Objects
+```gherkin
+Dado que o endpoint de dashboard ou relatórios integra múltiplos serviços analíticos
+Quando a suíte unitária executar a validação de formatação de resposta
+Então os cálculos de faturamento e recomendações devem ser interceptados por Mock Objects
+E o comportamento da view deve ser verificado independentemente do estado do banco de dados
+```
+
