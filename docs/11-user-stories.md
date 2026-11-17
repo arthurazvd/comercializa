@@ -90,3 +90,54 @@ Uma User Story é considerada concluída quando:
 4. a suíte de testes relevante estiver passando;
 5. a documentação afetada estiver atualizada;
 6. não houver regressão conhecida introduzida pela alteração.
+
+## Especificação detalhada — US04
+
+### US04 — Atualização automática do estoque após vendas
+
+**Como** comerciante,  
+**quero** que o estoque dos produtos seja atualizado automaticamente após o registro de uma venda,  
+**para** evitar divergências entre as quantidades disponíveis e as quantidades efetivamente comercializadas.
+
+### Critérios de aceitação
+
+- CA01: Ao registrar uma venda válida, o estoque dos produtos vendidos deve ser reduzido de acordo com as quantidades comercializadas.
+- CA02: O sistema deve impedir a conclusão de uma venda quando a quantidade solicitada ultrapassar o estoque disponível.
+- CA03: Uma venda contendo múltiplos produtos deve atualizar corretamente o estoque de cada produto.
+- CA04: Quando uma venda for rejeitada, nenhuma alteração parcial de estoque ou registro incompleto de venda deve permanecer persistido.
+- CA05: Após a conclusão da venda, os novos saldos devem permanecer armazenados no banco de dados.
+
+### Cenários de testes de aceitação — BDD/Gherkin
+
+```gherkin
+Funcionalidade: Atualização automática do estoque após vendas
+
+  Cenário: Registrar venda com estoque suficiente
+    Dado que existe um produto com 20 unidades em estoque
+    Quando o comerciante registrar uma venda de 5 unidades
+    Então a venda deverá ser registrada com sucesso
+    E o estoque do produto deverá ser atualizado para 15 unidades
+
+  Cenário: Impedir venda com estoque insuficiente
+    Dado que existe um produto com 3 unidades em estoque
+    Quando o comerciante tentar vender 5 unidades
+    Então o sistema deverá rejeitar a venda
+    E o estoque deverá permanecer com 3 unidades
+
+  Cenário: Atualizar estoque de múltiplos produtos
+    Dado que o produto A possui 20 unidades em estoque
+    E o produto B possui 15 unidades em estoque
+    Quando o comerciante registrar uma venda de 4 unidades do produto A
+    E 3 unidades do produto B
+    Então o estoque do produto A deverá ser 16 unidades
+    E o estoque do produto B deverá ser 12 unidades
+
+  Cenário: Garantir atomicidade em venda inválida
+    Dado que o produto A possui 10 unidades em estoque
+    E o produto B possui 2 unidades em estoque
+    Quando o comerciante tentar vender 3 unidades do produto A
+    E 5 unidades do produto B
+    Então a venda deverá ser rejeitada
+    E o estoque de ambos os produtos deverá permanecer inalterado
+    E nenhum registro incompleto da venda deverá ser persistido
+```
