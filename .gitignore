@@ -26,3 +26,5 @@ htmlcov/
 .pytest_cache/
 .mutmut-cache
 mutants/
+playwright-report/
+test-results/
