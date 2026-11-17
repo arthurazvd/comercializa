@@ -22,6 +22,7 @@ from .serializers import (
     StockMovementSerializer, StockAdjustmentSerializer,
 )
 from .services import dashboard_data
+from .expiration_service import get_expiration_alerts
 from rest_framework import serializers
 
 
@@ -213,3 +214,50 @@ class OperationStatusView(APIView):
 class DashboardView(APIView):
     def get(self, request):
         return Response(dashboard_data())
+
+
+class ExpirationAlertsView(APIView):
+    """Retorna alertas inteligentes de vencimento e cálculo de risco financeiro (US09)."""
+
+    def get(self, request):
+        window_raw = request.query_params.get("window_days", "30")
+        try:
+            window_days = int(window_raw)
+            if not 1 <= window_days <= 365:
+                return Response(
+                    {"detail": "O parâmetro window_days deve ser um inteiro entre 1 e 365."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except (ValueError, TypeError):
+            return Response(
+                {"detail": "O parâmetro window_days deve ser um número inteiro válido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        severity = request.query_params.get("severity")
+        if severity:
+            severity = severity.strip().lower()
+            valid_severities = {"vencido", "critico", "alerta", "atencao"}
+            if severity not in valid_severities:
+                return Response(
+                    {"detail": f"Severidade inválida. Opções: {', '.join(sorted(valid_severities))}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        category_id = request.query_params.get("category_id")
+        if category_id:
+            try:
+                category_id = int(category_id)
+            except (ValueError, TypeError):
+                return Response(
+                    {"detail": "O parâmetro category_id deve ser um número inteiro válido."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        data = get_expiration_alerts(
+            window_days=window_days,
+            severity_filter=severity,
+            category_id=category_id,
+        )
+        return Response(data, status=status.HTTP_200_OK)
+
