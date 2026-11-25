@@ -140,3 +140,10 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_REFERRER_POLICY = 'same-origin'
+
+# Distribuição integrada do frontend no contêiner, sem alterar o modo Vite local.
+FRONTEND_DIST = BASE_DIR / 'frontend_dist'
+if FRONTEND_DIST.is_dir():
+    if DEBUG:
+        MIDDLEWARE.insert(2, 'whitenoise.middleware.WhiteNoiseMiddleware')
+    WHITENOISE_ROOT = FRONTEND_DIST
