@@ -4,3 +4,6 @@ paths_to_mutate = "core/services.py,core/stock_lots.py"
 tests_dir = "tests/"
 runner = "python -m pytest tests -x -q --no-cov --assert=plain"
 backup = false
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

@@ -1,0 +1,602 @@
+
+> comercializa-frontend@1.5.0 test
+> node --test tests/*.test.js
+
+TAP version 13
+# Subtest: HTTP 201 é confirmação definitiva: não mostra falha nem repete POST
+ok 1 - HTTP 201 é confirmação definitiva: não mostra falha nem repete POST
+  ---
+  duration_ms: 10.269192
+  type: 'test'
+  ...
+# Subtest: HTTP 201 dispensa checagem: nenhum GET de comprovante é feito
+ok 2 - HTTP 201 dispensa checagem: nenhum GET de comprovante é feito
+  ---
+  duration_ms: 3.854038
+  type: 'test'
+  ...
+# Subtest: timeout não causa reenvio automático nem consulta extra; conserva a chave para o próximo clique
+ok 3 - timeout não causa reenvio automático nem consulta extra; conserva a chave para o próximo clique
+  ---
+  duration_ms: 2.684332
+  type: 'test'
+  ...
+# Subtest: erro de validação 400 não é ocultado como falha transitória
+ok 4 - erro de validação 400 não é ocultado como falha transitória
+  ---
+  duration_ms: 1.56756
+  type: 'test'
+  ...
+# Subtest: erro na atualização da tela após HTTP 201 não produz toast de falha de cadastro
+ok 5 - erro na atualização da tela após HTTP 201 não produz toast de falha de cadastro
+  ---
+  duration_ms: 0.841627
+  type: 'test'
+  ...
+# Subtest: ano de copyright acompanha automaticamente a data corrente
+ok 6 - ano de copyright acompanha automaticamente a data corrente
+  ---
+  duration_ms: 1.20924
+  type: 'test'
+  ...
+# Subtest: todas as variações da identidade visual são SVGs existentes e têm viewBox válido
+ok 7 - todas as variações da identidade visual são SVGs existentes e têm viewBox válido
+  ---
+  duration_ms: 1.053406
+  type: 'test'
+  ...
+# Subtest: favicon usa somente o símbolo vetorial, sem o nome da marca
+ok 8 - favicon usa somente o símbolo vetorial, sem o nome da marca
+  ---
+  duration_ms: 0.619603
+  type: 'test'
+  ...
+# Subtest: horizontal é paisagem e vertical é retrato, sem distorção de proporção
+ok 9 - horizontal é paisagem e vertical é retrato, sem distorção de proporção
+  ---
+  duration_ms: 0.751251
+  type: 'test'
+  ...
+# Subtest: HTML usa favicon claro/escuro e tela tem logos, rodapé e créditos
+ok 10 - HTML usa favicon claro/escuro e tela tem logos, rodapé e créditos
+  ---
+  duration_ms: 1.964358
+  type: 'test'
+  ...
+# Subtest: incluir o mesmo produto soma a quantidade em uma linha única
+ok 11 - incluir o mesmo produto soma a quantidade em uma linha única
+  ---
+  duration_ms: 3.362082
+  type: 'test'
+  ...
+# Subtest: não ultrapassa estoque disponível, mesmo que o saldo físico seja maior
+ok 12 - não ultrapassa estoque disponível, mesmo que o saldo físico seja maior
+  ---
+  duration_ms: 1.352496
+  type: 'test'
+  ...
+# Subtest: diferentes produtos mantêm linhas separadas e quantidades inteiras
+ok 13 - diferentes produtos mantêm linhas separadas e quantidades inteiras
+  ---
+  duration_ms: 0.224928
+  type: 'test'
+  ...
+# Subtest: visible version matches SemVer manifest
+ok 14 - visible version matches SemVer manifest
+  ---
+  duration_ms: 0.986245
+  type: 'test'
+  ...
+# Subtest: each product offers a direct photo control inside the catalog
+ok 15 - each product offers a direct photo control inside the catalog
+  ---
+  duration_ms: 0.254484
+  type: 'test'
+  ...
+# Subtest: catalog modal opens camera and gallery and normalizes JPEG
+ok 16 - catalog modal opens camera and gallery and normalizes JPEG
+  ---
+  duration_ms: 0.352651
+  type: 'test'
+  ...
+# Subtest: catalog photo actions send authenticated request to existing API and update thumbnail
+ok 17 - catalog photo actions send authenticated request to existing API and update thumbnail
+  ---
+  duration_ms: 0.144077
+  type: 'test'
+  ...
+# Subtest: notification has a visual timeout independent of JS and auto dismisses when time expires
+ok 18 - notification has a visual timeout independent of JS and auto dismisses when time expires
+  ---
+  duration_ms: 75.139556
+  type: 'test'
+  ...
+# Subtest: Cloudflare deployment always requests fresh index to avoid stale V1.1 bundle
+ok 19 - Cloudflare deployment always requests fresh index to avoid stale V1.1 bundle
+  ---
+  duration_ms: 0.377218
+  type: 'test'
+  ...
+# Subtest: campo vazio apresenta produtos alfabeticamente e ignora sem saldo vendável
+ok 20 - campo vazio apresenta produtos alfabeticamente e ignora sem saldo vendável
+  ---
+  duration_ms: 11.179763
+  type: 'test'
+  ...
+# Subtest: regras de venda impedem utilização de unidades vencidas em lote
+ok 21 - regras de venda impedem utilização de unidades vencidas em lote
+  ---
+  duration_ms: 0.397548
+  type: 'test'
+  ...
+# Subtest: justificativas de entrada, saída e outro
+ok 22 - justificativas de entrada, saída e outro
+  ---
+  duration_ms: 0.31228
+  type: 'test'
+  ...
+# Subtest: filtro de período e agrupamento por semana e mês
+ok 23 - filtro de período e agrupamento por semana e mês
+  ---
+  duration_ms: 1.033196
+  type: 'test'
+  ...
+# Subtest: ranking e concentração de categorias ignoram entradas vazias
+ok 24 - ranking e concentração de categorias ignoram entradas vazias
+  ---
+  duration_ms: 0.454134
+  type: 'test'
+  ...
+# Subtest: ranking mostra somente os dez maiores por unidades, sem adicionar o décimo primeiro nem Outros
+ok 25 - ranking mostra somente os dez maiores por unidades, sem adicionar o décimo primeiro nem Outros
+  ---
+  duration_ms: 0.520203
+  type: 'test'
+  ...
+# Subtest: catalog isolates image, product name, prices and actions instead of squeezing text
+ok 26 - catalog isolates image, product name, prices and actions instead of squeezing text
+  ---
+  duration_ms: 1.157273
+  type: 'test'
+  ...
+# Subtest: inventory displays authenticated thumbnails and opens a product preview
+ok 27 - inventory displays authenticated thumbnails and opens a product preview
+  ---
+  duration_ms: 0.455306
+  type: 'test'
+  ...
+# Subtest: purchases save cost per lot and optionally change current reference and selling price
+ok 28 - purchases save cost per lot and optionally change current reference and selling price
+  ---
+  duration_ms: 0.426352
+  type: 'test'
+  ...
+# Subtest: cadastrar / atualizar / excluir altera catálogo sem duplicar registros
+ok 29 - cadastrar / atualizar / excluir altera catálogo sem duplicar registros
+  ---
+  duration_ms: 1.897216
+  type: 'test'
+  ...
+# Subtest: GET anterior a um cadastro não sobrescreve cadastro confirmado
+ok 30 - GET anterior a um cadastro não sobrescreve cadastro confirmado
+  ---
+  duration_ms: 0.20601
+  type: 'test'
+  ...
+# Subtest: apenas consulta mais recente pode atualizar a mesma lista
+ok 31 - apenas consulta mais recente pode atualizar a mesma lista
+  ---
+  duration_ms: 0.169635
+  type: 'test'
+  ...
+# Subtest: falha em uma consulta não impede as demais consultas independentes
+ok 32 - falha em uma consulta não impede as demais consultas independentes
+  ---
+  duration_ms: 0.302165
+  type: 'test'
+  ...
+# Subtest: cadastro, exclusão e venda não dependem do carregamento global para sucesso
+ok 33 - cadastro, exclusão e venda não dependem do carregamento global para sucesso
+  ---
+  duration_ms: 0.591601
+  type: 'test'
+  ...
+# Subtest: npm lock has a satisfiable es-object-atoms requirement
+ok 34 - npm lock has a satisfiable es-object-atoms requirement
+  ---
+  duration_ms: 1.974232
+  type: 'test'
+  ...
+# Subtest: API identifica origem Render e anexa token
+ok 35 - API identifica origem Render e anexa token
+  ---
+  duration_ms: 1.177222
+  type: 'test'
+  ...
+# Subtest: tela de login impede acesso sem autenticação
+ok 36 - tela de login impede acesso sem autenticação
+  ---
+  duration_ms: 1.16837
+  type: 'test'
+  ...
+# Subtest: V1.4.0 shows profit gross COGS expenses and purchases distinctly
+ok 37 - V1.4.0 shows profit gross COGS expenses and purchases distinctly
+  ---
+  duration_ms: 0.749829
+  type: 'test'
+  ...
+# Subtest: financial entry form can register expense or investment and void
+ok 38 - financial entry form can register expense or investment and void
+  ---
+  duration_ms: 0.224198
+  type: 'test'
+  ...
+# Subtest: financial section is responsive and version is semver
+ok 39 - financial section is responsive and version is semver
+  ---
+  duration_ms: 0.192459
+  type: 'test'
+  ...
+# Subtest: versões de manifesto e lockfile coincidem
+ok 40 - versões de manifesto e lockfile coincidem
+  ---
+  duration_ms: 1.186657
+  type: 'test'
+  ...
+# Subtest: referências a picocolors usam somente a versão publicada 1.1.1
+ok 41 - referências a picocolors usam somente a versão publicada 1.1.1
+  ---
+  duration_ms: 0.116295
+  type: 'test'
+  ...
+# Subtest: URLs de tarball são coerentes com as versões fixadas no lockfile
+ok 42 - URLs de tarball são coerentes com as versões fixadas no lockfile
+  ---
+  duration_ms: 1.430053
+  type: 'test'
+  ...
+# Subtest: cada tela principal tem endereço próprio e reload preserva a seção
+ok 43 - cada tela principal tem endereço próprio e reload preserva a seção
+  ---
+  duration_ms: 2.073472
+  type: 'test'
+  ...
+# Subtest: cadastro libera botão mesmo que a interface ou a foto falhe após 201
+ok 44 - cadastro libera botão mesmo que a interface ou a foto falhe após 201
+  ---
+  duration_ms: 0.382206
+  type: 'test'
+  ...
+# Subtest: descrição é opcional, persiste no modelo e aparece no formulário e nos detalhes
+ok 45 - descrição é opcional, persiste no modelo e aparece no formulário e nos detalhes
+  ---
+  duration_ms: 0.2987
+  type: 'test'
+  ...
+# Subtest: busca tem somente foco externo e foto permite zoom sem modificar JPEG
+ok 46 - busca tem somente foco externo e foto permite zoom sem modificar JPEG
+  ---
+  duration_ms: 0.414955
+  type: 'test'
+  ...
+# Subtest: erros genéricos de rede, 5xx e erros de código não geram notificação falsa de cadastro
+ok 47 - erros genéricos de rede, 5xx e erros de código não geram notificação falsa de cadastro
+  ---
+  duration_ms: 0.708006
+  type: 'test'
+  ...
+# Subtest: erros HTTP explícitos de validação e permissão continuam legíveis
+ok 48 - erros HTTP explícitos de validação e permissão continuam legíveis
+  ---
+  duration_ms: 0.894467
+  type: 'test'
+  ...
+# Subtest: operação sem resposta não gera o toast genérico e não limpa o formulário
+ok 49 - operação sem resposta não gera o toast genérico e não limpa o formulário
+  ---
+  duration_ms: 0.2122
+  type: 'test'
+  ...
+# Subtest: busca do PDV permanece dentro do fluxo, sem lista flutuante sobre o carrinho
+ok 50 - busca do PDV permanece dentro do fluxo, sem lista flutuante sobre o carrinho
+  ---
+  duration_ms: 0.276547
+  type: 'test'
+  ...
+# Subtest: versão SemVer é a mesma do manifesto
+ok 51 - versão SemVer é a mesma do manifesto
+  ---
+  duration_ms: 0.910741
+  type: 'test'
+  ...
+# Subtest: nomes de arquivo seguem SKU e terminam em JPEG, sem diretórios
+ok 52 - nomes de arquivo seguem SKU e terminam em JPEG, sem diretórios
+  ---
+  duration_ms: 0.376306
+  type: 'test'
+  ...
+# Subtest: entrada rejeita não-imagem, 20MB e arquivo ausente
+ok 53 - entrada rejeita não-imagem, 20MB e arquivo ausente
+  ---
+  duration_ms: 0.429206
+  type: 'test'
+  ...
+# Subtest: foto é convertida com Canvas para JPEG, limitada a 100KB e mantém proporções
+ok 54 - foto é convertida com Canvas para JPEG, limitada a 100KB e mantém proporções
+  ---
+  duration_ms: 0.205128
+  type: 'test'
+  ...
+# Subtest: cadastro e edição oferecem captura da câmera, galeria, remoção e prévia
+ok 55 - cadastro e edição oferecem captura da câmera, galeria, remoção e prévia
+  ---
+  duration_ms: 0.414074
+  type: 'test'
+  ...
+# Subtest: salva produto antes da foto e guarda id quando upload falha, para não duplicar
+ok 56 - salva produto antes da foto e guarda id quando upload falha, para não duplicar
+  ---
+  duration_ms: 0.185199
+  type: 'test'
+  ...
+# Subtest: o backend isola fotos dos JSONs de listagem, exige autenticação e usa banco persistente
+ok 57 - o backend isola fotos dos JSONs de listagem, exige autenticação e usa banco persistente
+  ---
+  duration_ms: 0.3253
+  type: 'test'
+  ...
+# Subtest: carregamento de foto usa blob autenticado e carrega apenas quando visível
+ok 58 - carregamento de foto usa blob autenticado e carrega apenas quando visível
+  ---
+  duration_ms: 0.140842
+  type: 'test'
+  ...
+# Subtest: o toast é encerrado pela animação e pelo timer, reinicia com notificações novas
+ok 59 - o toast é encerrado pela animação e pelo timer, reinicia com notificações novas
+  ---
+  duration_ms: 0.409477
+  type: 'test'
+  ...
+# Subtest: filtros financeiros default usam início do mês local
+ok 60 - filtros financeiros default usam início do mês local
+  ---
+  duration_ms: 1.73317
+  type: 'test'
+  ...
+# Subtest: URL codifica período e filtros opcionais
+ok 61 - URL codifica período e filtros opcionais
+  ---
+  duration_ms: 0.327653
+  type: 'test'
+  ...
+# Subtest: consulta de produtos ignora caixa e inclui SKU
+ok 62 - consulta de produtos ignora caixa e inclui SKU
+  ---
+  duration_ms: 0.29927
+  type: 'test'
+  ...
+# Subtest: classificação tem prioridade para vencido e validade próxima
+ok 63 - classificação tem prioridade para vencido e validade próxima
+  ---
+  duration_ms: 0.302135
+  type: 'test'
+  ...
+# Subtest: estoque crítico inclui produtos vencidos com saldo baixo
+ok 64 - estoque crítico inclui produtos vencidos com saldo baixo
+  ---
+  duration_ms: 0.339701
+  type: 'test'
+  ...
+# Subtest: operação idempotente protege cadastros, vendas e ajustes
+ok 65 - operação idempotente protege cadastros, vendas e ajustes
+  ---
+  duration_ms: 1.365586
+  type: 'test'
+  ...
+# Subtest: primeiro acesso é seletivo, gráficos podem atualizar sem recarregar tudo
+ok 66 - primeiro acesso é seletivo, gráficos podem atualizar sem recarregar tudo
+  ---
+  duration_ms: 0.547605
+  type: 'test'
+  ...
+# Subtest: logo da autenticação é horizontal e navegação mobile usa barra inferior
+ok 67 - logo da autenticação é horizontal e navegação mobile usa barra inferior
+  ---
+  duration_ms: 1.676344
+  type: 'test'
+  ...
+# Subtest: estorno tem confirmação, motivo, aviso financeiro e feedback
+ok 68 - estorno tem confirmação, motivo, aviso financeiro e feedback
+  ---
+  duration_ms: 1.486808
+  type: 'test'
+  ...
+# Subtest: gráficos não dependem da aba em que uma venda ocorreu
+ok 69 - gráficos não dependem da aba em que uma venda ocorreu
+  ---
+  duration_ms: 0.42511
+  type: 'test'
+  ...
+# Subtest: API usa chave de idempotência sem endpoint de verificação
+ok 70 - API usa chave de idempotência sem endpoint de verificação
+  ---
+  duration_ms: 1.097833
+  type: 'test'
+  ...
+# Subtest: campo selecionado não cria linha extra e mantém alinhamento em mobile
+ok 71 - campo selecionado não cria linha extra e mantém alinhamento em mobile
+  ---
+  duration_ms: 0.681456
+  type: 'test'
+  ...
+# Subtest: toast desaparece após 1,5 segundo
+ok 72 - toast desaparece após 1,5 segundo
+  ---
+  duration_ms: 1.158374
+  type: 'test'
+  ...
+# Subtest: novo toast reinicia cronômetro e erros são tratados igualmente
+ok 73 - novo toast reinicia cronômetro e erros são tratados igualmente
+  ---
+  duration_ms: 0.175474
+  type: 'test'
+  ...
+# Subtest: a entrada de venda é fixa antes dos itens da venda e abre catálogo ao focar
+ok 74 - a entrada de venda é fixa antes dos itens da venda e abre catálogo ao focar
+  ---
+  duration_ms: 1.062059
+  type: 'test'
+  ...
+# Subtest: avisos têm fechamento automático e acessibilidade
+ok 75 - avisos têm fechamento automático e acessibilidade
+  ---
+  duration_ms: 0.664461
+  type: 'test'
+  ...
+# Subtest: recebimento perecível solicita data, gráficos têm controles e logo é compacta
+ok 76 - recebimento perecível solicita data, gráficos têm controles e logo é compacta
+  ---
+  duration_ms: 2.086962
+  type: 'test'
+  ...
+# Subtest: gráficos têm formatos fixos e ranking fica limitado a dez produtos
+ok 77 - gráficos têm formatos fixos e ranking fica limitado a dez produtos
+  ---
+  duration_ms: 1.358796
+  type: 'test'
+  ...
+# Subtest: consultas automáticas e gráficos não exibem toast genérico de conexão
+ok 78 - consultas automáticas e gráficos não exibem toast genérico de conexão
+  ---
+  duration_ms: 0.242035
+  type: 'test'
+  ...
+# Subtest: sem banner de verificação nem consultas extras de comprovante
+ok 79 - sem banner de verificação nem consultas extras de comprovante
+  ---
+  duration_ms: 0.747285
+  type: 'test'
+  ...
+# Subtest: versão SemVer corresponde ao package, aparece no footer e tira slogan
+ok 80 - versão SemVer corresponde ao package, aparece no footer e tira slogan
+  ---
+  duration_ms: 2.552873
+  type: 'test'
+  ...
+# Subtest: desktop mantém sidebar fixa no viewport sem rolagem própria; mobile conserva navegação inferior
+ok 81 - desktop mantém sidebar fixa no viewport sem rolagem própria; mobile conserva navegação inferior
+  ---
+  duration_ms: 0.361605
+  type: 'test'
+  ...
+# Subtest: gráficos fixos: receita em barras, dez itens por unidades em rosca, categorias em rosca
+ok 82 - gráficos fixos: receita em barras, dez itens por unidades em rosca, categorias em rosca
+  ---
+  duration_ms: 0.429196
+  type: 'test'
+  ...
+# Subtest: toasts duram 1,5 segundo, com mesma duração para erros e sucessos
+ok 83 - toasts duram 1,5 segundo, com mesma duração para erros e sucessos
+  ---
+  duration_ms: 0.288975
+  type: 'test'
+  ...
+# Subtest: campos numéricos têm botões acessíveis, com limites de quantidade no celular
+ok 84 - campos numéricos têm botões acessíveis, com limites de quantidade no celular
+  ---
+  duration_ms: 0.332861
+  type: 'test'
+  ...
+# Subtest: rolagem recebe cores personalizadas nos dois temas
+ok 85 - rolagem recebe cores personalizadas nos dois temas
+  ---
+  duration_ms: 0.173611
+  type: 'test'
+  ...
+# Subtest: tema padrão é claro e respeita escolha escura
+ok 86 - tema padrão é claro e respeita escolha escura
+  ---
+  duration_ms: 0.742288
+  type: 'test'
+  ...
+# Subtest: tema persiste no navegador sem aceitar valores inválidos
+ok 87 - tema persiste no navegador sem aceitar valores inválidos
+  ---
+  duration_ms: 0.159019
+  type: 'test'
+  ...
+# Subtest: tema funciona mesmo se armazenamento estiver bloqueado
+ok 88 - tema funciona mesmo se armazenamento estiver bloqueado
+  ---
+  duration_ms: 0.125769
+  type: 'test'
+  ...
+# Subtest: carrinho suporta múltiplos itens com desconto
+ok 89 - carrinho suporta múltiplos itens com desconto
+  ---
+  duration_ms: 1.895063
+  type: 'test'
+  ...
+# Subtest: total nunca fica negativo
+ok 90 - total nunca fica negativo
+  ---
+  duration_ms: 0.175554
+  type: 'test'
+  ...
+# Subtest: produto vence apenas após a data de validade
+ok 91 - produto vence apenas após a data de validade
+  ---
+  duration_ms: 0.180862
+  type: 'test'
+  ...
+# Subtest: venda aceita itens distintos com quantidades disponíveis
+ok 92 - venda aceita itens distintos com quantidades disponíveis
+  ---
+  duration_ms: 0.174233
+  type: 'test'
+  ...
+# Subtest: venda rejeita carrinho vazio, duplicado ou sem produto
+ok 93 - venda rejeita carrinho vazio, duplicado ou sem produto
+  ---
+  duration_ms: 0.267063
+  type: 'test'
+  ...
+# Subtest: venda rejeita quantidade inválida e estoque insuficiente
+ok 94 - venda rejeita quantidade inválida e estoque insuficiente
+  ---
+  duration_ms: 0.150908
+  type: 'test'
+  ...
+# Subtest: venda rejeita produtos vencidos, inativos e sem estoque
+ok 95 - venda rejeita produtos vencidos, inativos e sem estoque
+  ---
+  duration_ms: 0.210707
+  type: 'test'
+  ...
+# Subtest: venda rejeita descontos inválidos
+ok 96 - venda rejeita descontos inválidos
+  ---
+  duration_ms: 0.124498
+  type: 'test'
+  ...
+# Subtest: datas locais têm formato ISO e não variam com locale
+ok 97 - datas locais têm formato ISO e não variam com locale
+  ---
+  duration_ms: 0.42488
+  type: 'test'
+  ...
+# Subtest: formata valor monetário em reais
+ok 98 - formata valor monetário em reais
+  ---
+  duration_ms: 17.578307
+  type: 'test'
+  ...
+1..98
+# tests 98
+# suites 0
+# pass 98
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 533.147775

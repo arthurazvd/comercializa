@@ -3,6 +3,7 @@
 Sistema web para a gestão de lojas de variedades, com **cadastro de produtos**, fotos, estoque por lote, vendas e estornos, relatórios financeiros e painel de apoio à decisão.
 
 **Tecnologias:** Django + Django REST Framework (API), Vue 3 + Vite (interface), SQLite (desenvolvimento) e PostgreSQL/Neon (produção).
+**Tarefa 04:** [CI/CD, Docker e Quality Gate](docs/tarefa04.md). A publicação da atividade utiliza um serviço Render separado, com deploy automático nativo desativado.
 
 ## Funcionalidades
 
@@ -42,7 +43,7 @@ Para instalar, configurar usuários/ambientes, publicar ou resolver problemas, c
 
 ## Testes, cobertura e SonarQube
 
-A CI executa os testes do backend e do frontend, valida o build e exige **cobertura mínima de 70% do backend**. A análise SonarQube está configurada na mesma pipeline; é necessário configurar os secrets do projeto. A execução manual de análise também está disponível nos dias de aula.
+A CI executa os testes do backend e do frontend, valida o build e exige **cobertura mínima de 70% do backend**. A análise SonarQube está configurada na mesma pipeline; o SonarQube é executado quando seus secrets estão configurados; os demais controles são obrigatórios. A execução manual de análise também está disponível nos dias de aula.
 
 ```bash
 cd backend

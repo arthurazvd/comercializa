@@ -1,4 +1,5 @@
 """Autenticação por token para o frontend hospedado em outro domínio."""
+import os
 from django.conf import settings
 from django.contrib.auth import authenticate
 from rest_framework import status
@@ -13,7 +14,10 @@ class HealthView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        return Response({'status': 'ok'})
+        return Response({'status': 'ok'}, headers={
+            'Cache-Control': 'no-store',
+            'X-Comercializa-Revision': os.getenv('RENDER_GIT_COMMIT', 'local'),
+        })
 
 
 class SessionStatusView(APIView):
